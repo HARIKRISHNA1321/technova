@@ -45,7 +45,6 @@ async def upload_document_endpoint(
     supabase_key = os.getenv("SUPABASE_KEY", "").strip()
     
     if not supabase_url or not supabase_key:
-        import os
         static_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
         user_dir = os.path.join(static_dir, "uploads", username)
         os.makedirs(user_dir, exist_ok=True)
