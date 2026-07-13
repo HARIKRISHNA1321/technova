@@ -372,7 +372,7 @@ def send_welcome_email_task(email: str, username: str, name: str, password: str)
         <p>Dear Faculty Member,</p>
         <p>We are thrilled to welcome you to the PES University family. Your portal credentials have been successfully provisioned. Please log in using the details below:</p>
         <div class="credentials">
-            <strong>Portal URL:</strong> http://localhost:8000<br>
+            <strong>Portal URL:</strong> https://technova-gt7e.onrender.com<br>
             <strong>Username:</strong> {username}<br>
             <strong>Password:</strong> {password}
         </div>
@@ -410,7 +410,7 @@ def send_verification_email_task(email: str, name: str):
         <h2>Documents Verified - PES University</h2>
         <p>Dear Faculty Member,</p>
         <p>We are pleased to inform you that all your submitted verification documents (Aadhaar Card, Appointment Letter, and Teacher Eligibility Test) have been successfully verified by our HR department.</p>
-        <p>You need to log in to the <a href="http://localhost:8000" style="color: #58a6ff;">PESU Academic portal</a> and check the <strong>PESU AI</strong> chatbot for a detailed brief on college policies.</p>
+        <p>You need to log in to the <a href="https://technova-gt7e.onrender.com" style="color: #58a6ff;">PESU Academic portal</a> and check the <strong>PESU AI</strong> chatbot for a detailed brief on college policies.</p>
         <p>Best Regards,<br>HR Department<br>PES University</p>
         <div class="footer">
             This is an automated onboarding email. Please do not reply directly.

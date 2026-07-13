@@ -234,7 +234,7 @@ async def credential_agent(ctx: Context, node_input: Any) -> Event:
         <p>Dear Faculty Member,</p>
         <p>We are thrilled to welcome you to the PES University family. Your portal credentials have been successfully provisioned. Please log in using the details below:</p>
         <div class="credentials">
-            <strong>Portal URL:</strong> http://localhost:8000<br>
+            <strong>Portal URL:</strong> https://technova-gt7e.onrender.com<br>
             <strong>Username:</strong> {username}<br>
             <strong>Password:</strong> {password}
         </div>
