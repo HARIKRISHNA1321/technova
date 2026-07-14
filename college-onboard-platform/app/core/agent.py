@@ -150,7 +150,11 @@ def chatbot_node(ctx: Context, node_input: Any) -> Event:
     current_state.update(state_updates)
     local_store.save_state(current_state)
 
-    return Event(output=response, state=state_updates)
+    return Event(
+        output=response,
+        content={"parts": [{"text": response}], "role": "model"},
+        state=state_updates
+    )
 
 
 @node(rerun_on_resume=True)

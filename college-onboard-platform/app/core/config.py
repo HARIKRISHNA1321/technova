@@ -26,4 +26,5 @@ CHAIRPERSON_EMAIL = os.getenv("CHAIRPERSON_EMAIL", "chairperson@pes.edu")
 IDCARD_EMAIL = os.getenv("IDCARD_EMAIL", "idcards@pes.edu")
 IT_EMAIL = os.getenv("IT_EMAIL", "it@pes.edu")
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY", "")
 

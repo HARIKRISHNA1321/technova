@@ -253,12 +253,12 @@ def refine_query_with_gemini(user_input: str) -> str:
 
     try:
         import requests
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={api_key}"
         headers = {"Content-Type": "application/json"}
         data = {
             "contents": [{"parts": [{"text": refiner_prompt}]}]
         }
-        response = requests.post(url, headers=headers, json=data, timeout=15.0)
+        response = requests.post(url, headers=headers, json=data, timeout=60.0)
         if response.status_code == 200:
             res_json = response.json()
             refined = res_json["candidates"][0]["content"]["parts"][0]["text"].strip()
@@ -319,7 +319,7 @@ def chatbot_endpoint(req: ChatRequest) -> dict:
     if api_key:
         try:
             import requests
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={api_key}"
             headers = {"Content-Type": "application/json"}
             data = {
                 "contents": [{"parts": [{"text": prompt}]}]
@@ -328,7 +328,7 @@ def chatbot_endpoint(req: ChatRequest) -> dict:
             retries = 3
             backoff = 0.5
             for attempt in range(retries):
-                response = requests.post(url, headers=headers, json=data, timeout=15.0)
+                response = requests.post(url, headers=headers, json=data, timeout=60.0)
                 if response.status_code == 200:
                     res_json = response.json()
                     answer = res_json["candidates"][0]["content"]["parts"][0]["text"]
