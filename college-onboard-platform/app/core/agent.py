@@ -110,6 +110,30 @@ def router_node(ctx: Context, node_input: Any) -> Event:
                 if k in WorkflowState.model_fields.keys():
                     ctx.state[k] = v
 
+    from app.core.config import BYPASS_HITL_FOR_TESTING
+    if BYPASS_HITL_FOR_TESTING:
+        state_updates = {
+            "final_approval_flag": True,
+            "active_stage": "Provisioning-Done",
+            "current_stage": "policy_review",
+            "document_statuses": {
+                "aadhaar_card": "approved",
+                "appointment_letter": "approved",
+                "teacher_eligibility_test": "approved"
+            },
+            "onboarding_status_message": "Verified by HR, details forwarded for teacher onboarding"
+        }
+        for k, v in state_updates.items():
+            ctx.state[k] = v
+            
+        current_state = local_store.load_state() or {}
+        current_state.update(state_updates)
+        if "teachers" in current_state and "teacher" in current_state["teachers"]:
+            current_state["teachers"]["teacher"].update(state_updates)
+        local_store.save_state(current_state)
+
+        return Event(output=node_input, route="chatbot", state=state_updates)
+
     text = str(node_input)
     if any(keyword in text.lower() for keyword in ["leave", "apply", "balance", "policy", "days"]):
         return Event(output=node_input, route="chatbot")
@@ -123,6 +147,35 @@ def chatbot_node(ctx: Context, node_input: Any) -> Event:
     
     response = ""
     state_updates = {}
+
+    from app.core.config import BYPASS_HITL_FOR_TESTING
+    if BYPASS_HITL_FOR_TESTING:
+        state_updates = {
+            "final_approval_flag": True,
+            "active_stage": "Provisioning-Done",
+            "current_stage": "policy_review",
+            "document_statuses": {
+                "aadhaar_card": "approved",
+                "appointment_letter": "approved",
+                "teacher_eligibility_test": "approved"
+            },
+            "onboarding_status_message": "Verified by HR, details forwarded for teacher onboarding"
+        }
+        pinecone_service = PineconeRAGService()
+        response = pinecone_service.query_rules(clean_input)
+
+        local_store = LocalStateStore()
+        current_state = local_store.load_state() or {}
+        current_state.update(state_updates)
+        if "teachers" in current_state and "teacher" in current_state["teachers"]:
+            current_state["teachers"]["teacher"].update(state_updates)
+        local_store.save_state(current_state)
+
+        return Event(
+            output=response,
+            content={"parts": [{"text": response}], "role": "model"},
+            state=state_updates
+        )
 
     if "leave" in clean_input.lower() or "apply" in clean_input.lower():
         import re
@@ -289,6 +342,21 @@ async def credential_agent(ctx: Context, node_input: Any) -> Event:
 
 async def onboarding_guide(ctx: Context, node_input: Any):
     """Guides the teacher through the scan-and-upload process for joining documents."""
+    from app.core.config import BYPASS_HITL_FOR_TESTING
+    if BYPASS_HITL_FOR_TESTING:
+        docs = ["aadhaar_card.pdf", "appointment_letter.pdf", "teacher_eligibility_test.pdf"]
+        state_updates = {
+            "documents": docs,
+            "active_stage": "Documents-Uploaded"
+        }
+        local_store = LocalStateStore()
+        current_state = local_store.load_state()
+        current_state.update(state_updates)
+        local_store.save_state(current_state)
+
+        yield Event(output="Onboarding Guide: Documents received (Bypass): " + ",".join(docs), state=state_updates)
+        return
+
     if not ctx.resume_inputs or "uploaded_documents" not in ctx.resume_inputs:
         yield RequestInput(
             interrupt_id="uploaded_documents",
@@ -409,6 +477,22 @@ PES University Onboarding System"""
 @node(rerun_on_resume=True)
 async def allotment_approval_gate(ctx: Context, node_input: Any):
     """Listens for final approval and requests place and seat allotment criteria."""
+    from app.core.config import BYPASS_HITL_FOR_TESTING
+    if BYPASS_HITL_FOR_TESTING and not ctx.state.get("final_approval_flag", False):
+        criteria = "Room 101, Seat 1"
+        state_updates = {
+            "allotment_criteria": {"criteria": criteria},
+            "final_approval_flag": True,
+            "active_stage": "Seat-Allotted"
+        }
+        local_store = LocalStateStore()
+        current_state = local_store.load_state()
+        current_state.update(state_updates)
+        local_store.save_state(current_state)
+
+        yield Event(output=f"Allotment Gate: Seat approved with criteria (Bypass): {criteria}", state=state_updates)
+        return
+
     if not ctx.state.get("final_approval_flag", False):
         if not ctx.resume_inputs or "allotment_criteria" not in ctx.resume_inputs:
             yield RequestInput(

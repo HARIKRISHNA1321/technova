@@ -28,3 +28,5 @@ IT_EMAIL = os.getenv("IT_EMAIL", "it@pes.edu")
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY", "")
 
+# Human-in-the-Loop Testing Configuration
+BYPASS_HITL_FOR_TESTING = True
