@@ -1366,6 +1366,48 @@ adminAnnouncementForm.addEventListener('submit', async (e) => {
     }
 });
 
+// Change Password Form Submission
+const changePasswordForm = document.getElementById('change-password-form');
+if (changePasswordForm) {
+    changePasswordForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const currentPassword = document.getElementById('settings-current-password').value;
+        const newPassword = document.getElementById('settings-new-password').value;
+        const confirmPassword = document.getElementById('settings-confirm-password').value;
+
+        if (newPassword !== confirmPassword) {
+            alert("New passwords do not match.");
+            return;
+        }
+
+        const payload = {
+            username: currentUser,
+            current_password: currentPassword,
+            new_password: newPassword
+        };
+
+        try {
+            const res = await fetch('/api/action', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'change_password', payload })
+            });
+
+            if (res.ok) {
+                alert('Password updated successfully!');
+                changePasswordForm.reset();
+                syncStateData();
+            } else {
+                const err = await res.json();
+                alert(`Error updating password: ${err.detail || 'Incorrect current password.'}`);
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Failed to connect to the server.');
+        }
+    });
+}
+
 // Full-screen Chatbot Interactivity
 const fullscreenChatSend = document.getElementById('fullscreen-chat-send');
 const fullscreenChatInput = document.getElementById('fullscreen-chat-input');

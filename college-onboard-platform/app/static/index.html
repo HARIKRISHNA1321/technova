@@ -89,6 +89,7 @@
                             <button class="nav-tab" data-tab="candidate-seating">Seating Info</button>
                             <button class="nav-tab" data-tab="candidate-documents">Submit Documents</button>
                             <button class="nav-tab" data-tab="candidate-projects">Projects & Publications</button>
+                            <button class="nav-tab" data-tab="candidate-settings">Settings</button>
                         </div>
 
                         <!-- HR Menu -->
@@ -287,6 +288,31 @@
                         <p class="section-desc">Academic works and research papers</p>
                         <div class="empty-projects-box mt-3">
                             <p class="text-muted">No projects or publications found in record.</p>
+                        </div>
+                    </div>
+
+                    <!-- Settings View -->
+                    <div id="tab-candidate-settings" class="tab-pane hidden">
+                        <h2>Settings</h2>
+                        <p class="section-desc">Manage your account credentials and security preferences</p>
+                        
+                        <div class="settings-card mt-3" style="max-width: 450px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 25px;">
+                            <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 1.2rem; color: #58a6ff;">Change Password</h3>
+                            <form id="change-password-form">
+                                <div class="form-group" style="margin-bottom: 15px;">
+                                    <label for="settings-current-password" style="display: block; margin-bottom: 6px; font-size: 0.9rem; color: #8b949e;">Current Password</label>
+                                    <input type="password" id="settings-current-password" required style="width: 100%; padding: 10px 14px; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #fff; box-sizing: border-box;">
+                                </div>
+                                <div class="form-group" style="margin-bottom: 15px;">
+                                    <label for="settings-new-password" style="display: block; margin-bottom: 6px; font-size: 0.9rem; color: #8b949e;">New Password</label>
+                                    <input type="password" id="settings-new-password" required style="width: 100%; padding: 10px 14px; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #fff; box-sizing: border-box;">
+                                </div>
+                                <div class="form-group" style="margin-bottom: 20px;">
+                                    <label for="settings-confirm-password" style="display: block; margin-bottom: 6px; font-size: 0.9rem; color: #8b949e;">Confirm New Password</label>
+                                    <input type="password" id="settings-confirm-password" required style="width: 100%; padding: 10px 14px; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #fff; box-sizing: border-box;">
+                                </div>
+                                <button type="submit" class="btn btn-primary" style="width: 100%; border-radius: 8px; padding: 12px;">Update Password</button>
+                            </form>
                         </div>
                     </div>
 

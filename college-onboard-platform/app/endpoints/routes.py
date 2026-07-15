@@ -554,6 +554,21 @@ def trigger_action(req: ActionRequest, background_tasks: BackgroundTasks) -> dic
         write_log("HR_AGENT", f"New teacher profile created: {username} ({name})")
         background_tasks.add_task(send_welcome_email_task, email=email, username=username, name=name, password=password)
 
+    elif action == "change_password":
+        username = payload.get("username")
+        current_password = payload.get("current_password")
+        new_password = payload.get("new_password")
+        
+        if username not in state["teachers"]:
+            raise HTTPException(status_code=404, detail="Teacher not found.")
+            
+        teacher = state["teachers"][username]
+        if teacher.get("password") != current_password:
+            raise HTTPException(status_code=400, detail="Incorrect current password.")
+            
+        teacher["password"] = new_password
+        write_log("CANDIDATE_PORTAL", f"Password changed successfully for user: {username}")
+
     elif action == "update_teacher":
         username = payload.get("username")
         if username not in state["teachers"]:
