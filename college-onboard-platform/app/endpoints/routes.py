@@ -258,20 +258,45 @@ def chatbot_endpoint(req: ChatRequest) -> dict:
     write_log("CHATBOT_AGENT", f"Received message: '{clean_input}'")
     
     if req.message == "load_basic_policies_rag":
-        # Force a dedicated lookup on core university policies
-        from app.tools.pinecone_rag import PineconeRAGService
-        pinecone_service = PineconeRAGService()
-        rules_context = pinecone_service.query_rules("core university guidelines, employee ethics, campus policies, faculty code of conduct")
-        
-        from dotenv import load_dotenv
-        load_dotenv(override=True)
-        api_key = os.getenv("GEMINI_API_KEY", "").strip()
-        
-        prompt = (
-            f"You are a helpful PESU AI. Please synthesize the following retrieved university policies, faculty code of conduct, and employee guidelines into a welcoming, easy-to-digest executive brief for a newly onboarded teacher. Start with a warm welcome statement, highlight the core values, working expectations, and code of conduct. Keep it structured with bullet points. Make sure to use relevant emojis where appropriate to make the response engaging and friendly.\n\n"
-            f"Retrieved Policies:\n{rules_context}\n\n"
-            f"Executive Brief:"
+        welcome_msg = (
+            "✨Welcome to the PES University Family! ✨\n\n"
+            "On behalf of the entire community, a warm and hearty welcome to PES University (PESU)! We are absolutely thrilled to have you join our esteemed faculty.\n\n"
+            "At PESU, we believe that our teachers are the catalysts for transformation, innovation, and academic excellence. This executive brief is designed to help you seamlessly transition into your new role, understanding our shared values, operational expectations, and the world-class research ecosystem available at your fingertips.\n\n"
+            "---\n\n"
+            "### 🛡️ Our Core Values\n"
+            "* **Academic Excellence & Integrity**: We uphold the highest academic standards and expect our faculty to foster an environment of honesty, curiosity, and intellectual rigor.\n"
+            "* **Focus on Discovery**: We empower our scholars and educators to focus on high-quality discovery, innovative problem-solving, and impactful academic output.\n"
+            "* **Collaboration & Connectivity**: We believe in breaking down silos. Our faculty members work collaboratively across departments and campuses to drive interdisciplinary success.\n\n"
+            "---\n\n"
+            "### 🏫 Working Expectations & Campus-Wide Support\n"
+            "To help you balance teaching excellence with cutting-edge research, PESU provides comprehensive, coordinated support across our campuses:\n\n"
+            "* **Dual-Campus Synergy** 📍: You have full access to research support, administrators, seminar updates, and networking initiatives across both the Ring Road (RR) Campus and the Electronic City (EC) Campus.\n"
+            "* **Centralized Resource Hub** 📚: Easily access vital information through our centralized portals, including:\n"
+            "  * Institutional Research Policies\n"
+            "  * Funding and Grant Pathways\n"
+            "  * Publication Support\n"
+            "  * Patent-related Guidance and Filing Services\n"
+            "* **Professional Development** 💡: Participate in regular seminars, workshops, and departmental exchange programs to continuously elevate your pedagogical and research skills.\n\n"
+            "---\n\n"
+            "### 🔬 Equipment Reservation & Research Code of Conduct\n"
+            "PESU houses state-of-the-art research infrastructure. To ensure fair, safe, and efficient utilization of these resources, we ask all faculty members to adhere to the following guidelines:\n\n"
+            "* **State-of-the-Art Instruments**: Access advanced testing and analysis equipment, such as the FTIR Spectrometer (Fourier Transform Infrared Spectroscopy) for material characterization, polymer analysis, and pharmaceutical research.\n"
+            "* **Reservation Protocol** 📝:\n"
+            "  1. Download the official booking form from the Scholar Services portal.\n"
+            "  2. Fill in your research/class details.\n"
+            "  3. Submit the form directly to the respective Facility Coordinator before usage.\n"
+            "* **Lab Ethics & Safety** 🛡️: Please guide your students to treat all laboratories and instruments with care, strictly adhering to safety protocols and leaving workspaces clean for the next user.\n\n"
+            "---\n\n"
+            "### ⚙️ Complete Your Profile\n"
+            "* **Setup Settings** ⚙️: Please navigate to the **Settings** tab to verify your information, fill in your employee details, and complete your profile setup.\n\n"
+            "---\n\n"
+            "### 📞 Need Assistance?\n"
+            "We are here to support you every step of the way!\n"
+            "* For curriculum and classroom support, please reach out to your Department Chairperson.\n"
+            "* For research, patents, or equipment booking, connect directly with our Research Administrators on either campus.\n\n"
+            "Once again, welcome aboard! We look forward to watching you inspire the next generation of leaders at PES University. Let’s create, discover, and excel together! 🚀🎓"
         )
+        return {"response": welcome_msg}
     else:
         # 1. Refine query before calling Pinecone RAG search
         refined_query = refine_query_with_gemini(clean_input)
