@@ -871,30 +871,6 @@ function openEditDrawer(username, cardElement) {
     document.getElementById('edit-desig').value = t.designation;
     document.getElementById('edit-empid').value = t.employee_id || '';
 
-    // Render verification documents inside the drawer
-    const drawerDocs = document.getElementById('hr-drawer-verification-docs');
-    if (drawerDocs) {
-        drawerDocs.innerHTML = '';
-        if (t.documents && t.documents.length > 0) {
-            t.documents.forEach(doc => {
-                const item = document.createElement('div');
-                item.style.padding = '8px 12px';
-                item.style.background = 'rgba(255, 255, 255, 0.04)';
-                item.style.border = '1px solid rgba(255, 255, 255, 0.1)';
-                item.style.borderRadius = '6px';
-                item.style.fontSize = '0.85rem';
-                item.style.marginTop = '6px';
-                item.style.display = 'flex';
-                item.style.justifyContent = 'space-between';
-                item.style.alignItems = 'center';
-                item.innerHTML = `<span>📄 ${doc}</span><span style="color:#56d364; font-weight:500;">✓ Ready</span>`;
-                drawerDocs.appendChild(item);
-            });
-        } else {
-            drawerDocs.innerHTML = '<div class="text-muted" style="font-size:0.85rem; padding: 5px 0;">No documents uploaded.</div>';
-        }
-    }
-
     editDrawer.classList.remove('hidden');
 }
 
