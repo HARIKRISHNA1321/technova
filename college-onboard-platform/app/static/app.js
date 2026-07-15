@@ -1408,6 +1408,44 @@ if (changePasswordForm) {
     });
 }
 
+// Update Email Form Submission
+const updateEmailForm = document.getElementById('update-email-form');
+if (updateEmailForm) {
+    updateEmailForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const prefix = document.getElementById('settings-email-prefix').value.trim();
+        if (!prefix) return;
+        
+        const cleanedPrefix = prefix.replace(/@pes\.edu$/i, '').trim();
+        const newEmail = `${cleanedPrefix}@pes.edu`;
+
+        const payload = {
+            username: currentUser,
+            new_email: newEmail
+        };
+
+        try {
+            const res = await fetch('/api/action', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'update_email', payload })
+            });
+
+            if (res.ok) {
+                alert('Email address updated successfully!');
+                updateEmailForm.reset();
+                syncStateData();
+            } else {
+                const err = await res.json();
+                alert(`Error updating email: ${err.detail || 'Request failed.'}`);
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Failed to connect to the server.');
+        }
+    });
+}
+
 // Full-screen Chatbot Interactivity
 const fullscreenChatSend = document.getElementById('fullscreen-chat-send');
 const fullscreenChatInput = document.getElementById('fullscreen-chat-input');

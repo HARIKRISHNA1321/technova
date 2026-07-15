@@ -569,6 +569,17 @@ def trigger_action(req: ActionRequest, background_tasks: BackgroundTasks) -> dic
         teacher["password"] = new_password
         write_log("CANDIDATE_PORTAL", f"Password changed successfully for user: {username}")
 
+    elif action == "update_email":
+        username = payload.get("username")
+        new_email = payload.get("new_email")
+        
+        if username not in state["teachers"]:
+            raise HTTPException(status_code=404, detail="Teacher not found.")
+            
+        teacher = state["teachers"][username]
+        teacher["email"] = new_email
+        write_log("CANDIDATE_PORTAL", f"Email updated successfully for user: {username} to {new_email}")
+
     elif action == "update_teacher":
         username = payload.get("username")
         if username not in state["teachers"]:
