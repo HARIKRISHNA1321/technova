@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PES University Academic Portal</title>
-    <link rel="stylesheet" href="/static/style.css?v=1.0.24">
+    <link rel="stylesheet" href="/static/style.css?v=1.0.25">
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@500;700&display=swap"
         rel="stylesheet">
@@ -298,20 +298,20 @@
                         
                         <!-- Settings List View -->
                         <div id="settings-main-list">
-                            <div class="settings-list" style="max-width: 500px;">
-                                <div class="settings-item" onclick="showSettingsView('change-password')">
-                                    <div class="settings-item-left">
-                                        <span class="settings-item-icon">🔒</span>
+                            <div class="settings-list" style="max-width: 500px; display: flex; flex-direction: column; margin-top: 20px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; overflow: hidden;">
+                                <div class="settings-item" onclick="showSettingsView('change-password')" style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); cursor: pointer; transition: background 0.2s ease, transform 0.1s ease; user-select: none;">
+                                    <div class="settings-item-left" style="display: flex; align-items: center; gap: 12px; font-size: 1rem; font-weight: 500; color: #c9d1d9;">
+                                        <span class="settings-item-icon" style="font-size: 1.2rem; color: #8b949e;">🔒</span>
                                         <span>Change Password</span>
                                     </div>
-                                    <span class="settings-item-chevron">›</span>
+                                    <span class="settings-item-chevron" style="color: #8b949e; font-size: 1.1rem; font-weight: bold;">&gt;</span>
                                 </div>
-                                <div class="settings-item" onclick="showSettingsView('update-email')">
-                                    <div class="settings-item-left">
-                                        <span class="settings-item-icon">✉️</span>
+                                <div class="settings-item" onclick="showSettingsView('update-email')" style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: none; cursor: pointer; transition: background 0.2s ease, transform 0.1s ease; user-select: none;">
+                                    <div class="settings-item-left" style="display: flex; align-items: center; gap: 12px; font-size: 1rem; font-weight: 500; color: #c9d1d9;">
+                                        <span class="settings-item-icon" style="font-size: 1.2rem; color: #8b949e;">✉️</span>
                                         <span>Update Email ID</span>
                                     </div>
-                                    <span class="settings-item-chevron">›</span>
+                                    <span class="settings-item-chevron" style="color: #8b949e; font-size: 1.1rem; font-weight: bold;">&gt;</span>
                                 </div>
                             </div>
                         </div>
