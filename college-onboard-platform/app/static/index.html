@@ -296,37 +296,65 @@
                         <h2>Settings</h2>
                         <p class="section-desc">Manage your account credentials and security preferences</p>
                         
-                        <div class="settings-card mt-3" style="max-width: 450px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 25px;">
-                            <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 1.2rem; color: #58a6ff;">Change Password</h3>
-                            <form id="change-password-form">
-                                <div class="form-group" style="margin-bottom: 15px;">
-                                    <label for="settings-current-password" style="display: block; margin-bottom: 6px; font-size: 0.9rem; color: #8b949e;">Current Password</label>
-                                    <input type="password" id="settings-current-password" required style="width: 100%; padding: 10px 14px; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #fff; box-sizing: border-box;">
+                        <!-- Settings List View -->
+                        <div id="settings-main-list">
+                            <div class="settings-list" style="max-width: 500px;">
+                                <div class="settings-item" onclick="showSettingsView('change-password')">
+                                    <div class="settings-item-left">
+                                        <span class="settings-item-icon">🔒</span>
+                                        <span>Change Password</span>
+                                    </div>
+                                    <span class="settings-item-chevron">›</span>
                                 </div>
-                                <div class="form-group" style="margin-bottom: 15px;">
-                                    <label for="settings-new-password" style="display: block; margin-bottom: 6px; font-size: 0.9rem; color: #8b949e;">New Password</label>
-                                    <input type="password" id="settings-new-password" required style="width: 100%; padding: 10px 14px; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #fff; box-sizing: border-box;">
+                                <div class="settings-item" onclick="showSettingsView('update-email')">
+                                    <div class="settings-item-left">
+                                        <span class="settings-item-icon">✉️</span>
+                                        <span>Update Email ID</span>
+                                    </div>
+                                    <span class="settings-item-chevron">›</span>
                                 </div>
-                                <div class="form-group" style="margin-bottom: 20px;">
-                                    <label for="settings-confirm-password" style="display: block; margin-bottom: 6px; font-size: 0.9rem; color: #8b949e;">Confirm New Password</label>
-                                    <input type="password" id="settings-confirm-password" required style="width: 100%; padding: 10px 14px; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #fff; box-sizing: border-box;">
-                                </div>
-                                <button type="submit" class="btn btn-primary" style="width: 100%; border-radius: 8px; padding: 12px;">Update Password</button>
-                            </form>
+                            </div>
                         </div>
 
-                        <div class="settings-card mt-3" style="max-width: 450px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 25px; margin-top: 20px;">
-                            <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 1.2rem; color: #58a6ff;">Update Email ID</h3>
-                            <form id="update-email-form">
-                                <div class="form-group" style="margin-bottom: 20px;">
-                                    <label for="settings-email-prefix" style="display: block; margin-bottom: 6px; font-size: 0.9rem; color: #8b949e;">Email Address Prefix</label>
-                                    <div style="display: flex; align-items: center; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding-right: 14px;">
-                                        <input type="text" id="settings-email-prefix" required placeholder="e.g. jane.doe" style="flex: 1; padding: 10px 14px; background: transparent; border: none; color: #fff; box-sizing: border-box; outline: none;">
-                                        <span style="color: #8b949e; font-size: 0.95rem; user-select: none;">@pes.edu</span>
+                        <!-- Change Password Form View -->
+                        <div id="settings-change-password-view" class="hidden">
+                            <button class="settings-back-btn" onclick="showSettingsView('main')">← Back to Settings</button>
+                            <div class="settings-card" style="max-width: 450px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 25px;">
+                                <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 1.2rem; color: #58a6ff;">Change Password</h3>
+                                <form id="change-password-form">
+                                    <div class="form-group" style="margin-bottom: 15px;">
+                                        <label for="settings-current-password" style="display: block; margin-bottom: 6px; font-size: 0.9rem; color: #8b949e;">Current Password</label>
+                                        <input type="password" id="settings-current-password" required style="width: 100%; padding: 10px 14px; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #fff; box-sizing: border-box;">
                                     </div>
-                                </div>
-                                <button type="submit" class="btn btn-primary" style="width: 100%; border-radius: 8px; padding: 12px;">Update Email</button>
-                            </form>
+                                    <div class="form-group" style="margin-bottom: 15px;">
+                                        <label for="settings-new-password" style="display: block; margin-bottom: 6px; font-size: 0.9rem; color: #8b949e;">New Password</label>
+                                        <input type="password" id="settings-new-password" required style="width: 100%; padding: 10px 14px; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #fff; box-sizing: border-box;">
+                                    </div>
+                                    <div class="form-group" style="margin-bottom: 20px;">
+                                        <label for="settings-confirm-password" style="display: block; margin-bottom: 6px; font-size: 0.9rem; color: #8b949e;">Confirm New Password</label>
+                                        <input type="password" id="settings-confirm-password" required style="width: 100%; padding: 10px 14px; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #fff; box-sizing: border-box;">
+                                    </div>
+                                    <button type="submit" class="btn btn-primary" style="width: 100%; border-radius: 8px; padding: 12px;">Update Password</button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Update Email Form View -->
+                        <div id="settings-update-email-view" class="hidden">
+                            <button class="settings-back-btn" onclick="showSettingsView('main')">← Back to Settings</button>
+                            <div class="settings-card" style="max-width: 450px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 25px;">
+                                <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 1.2rem; color: #58a6ff;">Update Email ID</h3>
+                                <form id="update-email-form">
+                                    <div class="form-group" style="margin-bottom: 20px;">
+                                        <label for="settings-email-prefix" style="display: block; margin-bottom: 6px; font-size: 0.9rem; color: #8b949e;">Email Address Prefix</label>
+                                        <div style="display: flex; align-items: center; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding-right: 14px;">
+                                            <input type="text" id="settings-email-prefix" required placeholder="e.g. jane.doe" style="flex: 1; padding: 10px 14px; background: transparent; border: none; color: #fff; box-sizing: border-box; outline: none;">
+                                            <span style="color: #8b949e; font-size: 0.95rem; user-select: none;">@pes.edu</span>
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary" style="width: 100%; border-radius: 8px; padding: 12px;">Update Email</button>
+                                </form>
+                            </div>
                         </div>
                     </div>
 

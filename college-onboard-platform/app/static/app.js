@@ -194,6 +194,30 @@ function switchTab(tabId) {
 
     const targetPane = document.getElementById(`tab-${tabId}`);
     if (targetPane) targetPane.classList.remove('hidden');
+
+    if (tabId === 'candidate-settings') {
+        showSettingsView('main');
+    }
+}
+
+function showSettingsView(viewName) {
+    const mainList = document.getElementById('settings-main-list');
+    const passwordView = document.getElementById('settings-change-password-view');
+    const emailView = document.getElementById('settings-update-email-view');
+
+    if (!mainList || !passwordView || !emailView) return;
+
+    mainList.classList.add('hidden');
+    passwordView.classList.add('hidden');
+    emailView.classList.add('hidden');
+
+    if (viewName === 'change-password') {
+        passwordView.classList.remove('hidden');
+    } else if (viewName === 'update-email') {
+        emailView.classList.remove('hidden');
+    } else {
+        mainList.classList.remove('hidden');
+    }
 }
 
 // Update DOM elements using loaded state
