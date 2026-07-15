@@ -1439,20 +1439,6 @@ if (changePasswordForm) {
 
 // Update Email Form Submission
 const updateEmailForm = document.getElementById('update-email-form');
-const emailPrefixInput = document.getElementById('settings-email-prefix');
-const emailPreviewText = document.getElementById('email-preview-text');
-
-if (emailPrefixInput && emailPreviewText) {
-    emailPrefixInput.addEventListener('input', () => {
-        const val = emailPrefixInput.value.trim().replace(/@pes\.edu$/i, '');
-        if (val) {
-            emailPreviewText.innerText = `${val}@pes.edu`;
-        } else {
-            emailPreviewText.innerText = 'example@pes.edu';
-        }
-    });
-}
-
 if (updateEmailForm) {
     updateEmailForm.addEventListener('submit', async (e) => {
         e.preventDefault();
