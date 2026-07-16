@@ -339,55 +339,106 @@ def chatbot_endpoint(req: ChatRequest):
                 import requests
                 from dotenv import load_dotenv
                 load_dotenv(override=True)
-                api_key = os.getenv("GEMINI_API_KEY", "").strip()
+                groq_key = os.getenv("GROQ_API_KEY", "").strip()
 
-                # 1. Try Direct REST Streaming API (Highly robust for AQ. keys)
-                write_log("CHATBOT_DEBUG", f"api_key loaded: length={len(api_key)}, starts_with={api_key[:5] if api_key else 'None'}")
-                if api_key:
-                    models_to_try = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-2.0-flash']
-                    for model_name in models_to_try:
-                        try:
-                            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:streamGenerateContent?key={api_key}"
-                            headers = {"Content-Type": "application/json"}
-                            data = {
-                                "contents": [{"parts": [{"text": prompt}]}]
-                            }
-                            write_log("CHATBOT_DEBUG", f"Attempting REST stream with model: {model_name}")
-                            response = requests.post(url, headers=headers, json=data, stream=True, timeout=30.0)
-                            write_log("CHATBOT_DEBUG", f"REST stream response status for {model_name}: {response.status_code}")
-                            if response.status_code == 200:
-                                for line in response.iter_lines():
-                                    if line:
-                                        line_str = line.decode('utf-8').strip()
-                                        if line_str.startswith('['):
-                                            line_str = line_str[1:]
-                                        if line_str.startswith(','):
-                                            line_str = line_str[1:]
-                                        if line_str.endswith(']'):
-                                            line_str = line_str[:-1]
-                                        line_str = line_str.strip()
-                                        if not line_str:
-                                            continue
+                # Try Groq API first if configured
+                if groq_key and groq_key != "your_groq_api_key_here":
+                    write_log("CHATBOT_DEBUG", "GROQ_API_KEY detected. Using Groq API for chatbot endpoint.")
+                    url = "https://api.groq.com/openai/v1/chat/completions"
+                    headers = {
+                        "Authorization": f"Bearer {groq_key}",
+                        "Content-Type": "application/json"
+                    }
+                    data = {
+                        "model": "llama-3.3-70b-versatile",
+                        "messages": [
+                            {"role": "user", "content": prompt}
+                        ],
+                        "stream": True
+                    }
+                    try:
+                        response = requests.post(url, headers=headers, json=data, stream=True, timeout=30.0)
+                        if response.status_code == 200:
+                            for line in response.iter_lines():
+                                if line:
+                                    line_str = line.decode('utf-8').strip()
+                                    if line_str.startswith("data: "):
+                                        data_content = line_str[6:].strip()
+                                        if data_content == "[DONE]":
+                                            break
                                         try:
-                                            chunk_json = json.loads(line_str)
-                                            text = chunk_json["candidates"][0]["content"]["parts"][0]["text"]
-                                            if text:
-                                                streamed_any = True
-                                                for char in text:
-                                                    yield char
-                                                    await asyncio.sleep(0.001)
+                                            chunk_json = json.loads(data_content)
+                                            delta = chunk_json["choices"][0]["delta"]
+                                            if "content" in delta:
+                                                text = delta["content"]
+                                                if text:
+                                                    streamed_any = True
+                                                    for char in text:
+                                                        yield char
+                                                        await asyncio.sleep(0.001)
                                         except Exception:
                                             pass
-                                if streamed_any:
-                                    break
-                            else:
-                                try:
-                                    err_content = response.text
-                                except Exception:
-                                    err_content = "could not read body"
-                                write_log("CHATBOT_ERROR", f"REST stream {model_name} returned non-200: {response.status_code} - {err_content}")
-                        except Exception as rest_err:
-                            write_log("CHATBOT_ERROR", f"REST stream {model_name} request failed: {str(rest_err)}.")
+                            if streamed_any:
+                                write_log("CHATBOT_DEBUG", "Groq stream finished successfully.")
+                        else:
+                            try:
+                                err_content = response.text
+                            except Exception:
+                                err_content = "could not read body"
+                            write_log("CHATBOT_ERROR", f"Groq stream returned non-200: {response.status_code} - {err_content}")
+                    except Exception as groq_err:
+                        write_log("CHATBOT_ERROR", f"Groq API call failed: {str(groq_err)}")
+
+                # Fallback to Gemini if Groq did not stream anything
+                if not streamed_any:
+                    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+                    # 1. Try Direct REST Streaming API (Highly robust for AQ. keys)
+                    write_log("CHATBOT_DEBUG", f"api_key loaded: length={len(api_key)}, starts_with={api_key[:5] if api_key else 'None'}")
+                    if api_key:
+                        models_to_try = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-2.0-flash']
+                        for model_name in models_to_try:
+                            try:
+                                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:streamGenerateContent?key={api_key}"
+                                headers = {"Content-Type": "application/json"}
+                                data = {
+                                    "contents": [{"parts": [{"text": prompt}]}]
+                                }
+                                write_log("CHATBOT_DEBUG", f"Attempting REST stream with model: {model_name}")
+                                response = requests.post(url, headers=headers, json=data, stream=True, timeout=30.0)
+                                write_log("CHATBOT_DEBUG", f"REST stream response status for {model_name}: {response.status_code}")
+                                if response.status_code == 200:
+                                    for line in response.iter_lines():
+                                        if line:
+                                            line_str = line.decode('utf-8').strip()
+                                            if line_str.startswith('['):
+                                                line_str = line_str[1:]
+                                            if line_str.startswith(','):
+                                                line_str = line_str[1:]
+                                            if line_str.endswith(']'):
+                                                line_str = line_str[:-1]
+                                            line_str = line_str.strip()
+                                            if not line_str:
+                                                continue
+                                            try:
+                                                chunk_json = json.loads(line_str)
+                                                text = chunk_json["candidates"][0]["content"]["parts"][0]["text"]
+                                                if text:
+                                                    streamed_any = True
+                                                    for char in text:
+                                                        yield char
+                                                        await asyncio.sleep(0.001)
+                                            except Exception:
+                                                pass
+                                    if streamed_any:
+                                        break
+                                else:
+                                    try:
+                                        err_content = response.text
+                                    except Exception:
+                                        err_content = "could not read body"
+                                    write_log("CHATBOT_ERROR", f"REST stream {model_name} returned non-200: {response.status_code} - {err_content}")
+                            except Exception as rest_err:
+                                write_log("CHATBOT_ERROR", f"REST stream {model_name} request failed: {str(rest_err)}.")
                             
                 # 2. Try SDK Fallbacks if REST did not stream anything
                 if not streamed_any:
