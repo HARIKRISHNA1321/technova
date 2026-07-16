@@ -207,6 +207,12 @@ function switchTab(tabId) {
             fullscreenChatBody.scrollTop = fullscreenChatBody.scrollHeight;
         }, 50);
     }
+    if (tabId === 'candidate-calendar') {
+        initCalendar();
+    }
+    if (tabId === 'admin-calendar') {
+        initAdminCalendar();
+    }
 }
 
 function showSettingsView(viewName) {
@@ -363,22 +369,7 @@ function updateDashboardView() {
         seatVal.innerText = teacher.seating_info || 'Not Allotted';
 
         // Calendar Schedule
-        const scheduleBody = document.getElementById('calendar-schedule-body');
-        scheduleBody.innerHTML = '';
-        if (teacher.schedule && teacher.schedule.length > 0) {
-            teacher.schedule.forEach(s => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td><strong>${s.day}</strong></td>
-                    <td>${s.time}</td>
-                    <td>${s.subject}</td>
-                    <td><span class="badge badge-info">${s.class}</span></td>
-                `;
-                scheduleBody.appendChild(tr);
-            });
-        } else {
-            scheduleBody.innerHTML = '<tr><td colspan="4" class="text-muted text-center">No classes scheduled</td></tr>';
-        }
+        teacherSchedule = teacher.schedule || [];
 
         // Attendance Record
         const absentCount = document.getElementById('attendance-absent-count');
@@ -2275,3 +2266,1016 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+
+// Academic Calendar Component State & Logic
+let calendarYear = 2026; // Current local time year is 2026
+let calendarMonth = 6;  // July (0-indexed is 6)
+let academicEvents = [];
+let publicHolidays = {}; // cache by year
+let teacherSchedule = [];
+let calendarFilter = 'meetings'; // 'meetings' or 'timetable'
+
+async function initCalendar() {
+    const monthSelect = document.getElementById('calendar-month-select');
+    const yearSelect = document.getElementById('calendar-year-select');
+    const prevBtn = document.getElementById('calendar-prev-month');
+    const nextBtn = document.getElementById('calendar-next-month');
+    const todayBtn = document.getElementById('calendar-today-btn');
+
+    if (!monthSelect || !yearSelect) return;
+
+    // Populate Year Select
+    yearSelect.innerHTML = '';
+    const currentYear = new Date().getFullYear();
+    for (let y = currentYear - 2; y <= currentYear + 2; y++) {
+        const opt = document.createElement('option');
+        opt.value = y;
+        opt.innerText = y;
+        if (y === calendarYear) opt.selected = true;
+        yearSelect.appendChild(opt);
+    }
+
+    // Set Initial values
+    monthSelect.value = calendarMonth;
+    yearSelect.value = calendarYear;
+
+    // Filter selector and modal initialization
+    const filterSelect = document.getElementById('calendar-filter-select');
+    if (filterSelect) {
+        filterSelect.value = calendarFilter;
+        if (!filterSelect.dataset.hasListener) {
+            filterSelect.dataset.hasListener = "true";
+            filterSelect.addEventListener('change', () => {
+                calendarFilter = filterSelect.value;
+                renderCalendar();
+            });
+        }
+    }
+
+    const detailModal = document.getElementById('teacher-calendar-detail-modal');
+    const closeDetailModalBtn = document.getElementById('close-detail-modal-btn');
+    if (detailModal && closeDetailModalBtn && !closeDetailModalBtn.dataset.hasListener) {
+        closeDetailModalBtn.dataset.hasListener = "true";
+        closeDetailModalBtn.addEventListener('click', () => {
+            detailModal.classList.add('hidden');
+        });
+        detailModal.addEventListener('click', (e) => {
+            if (e.target === detailModal) {
+                detailModal.classList.add('hidden');
+            }
+        });
+    }
+
+    // Listeners
+    if (!monthSelect.dataset.hasListener) {
+        monthSelect.dataset.hasListener = "true";
+        monthSelect.addEventListener('change', () => {
+            calendarMonth = parseInt(monthSelect.value);
+            renderCalendar();
+        });
+    }
+
+    if (!yearSelect.dataset.hasListener) {
+        yearSelect.dataset.hasListener = "true";
+        yearSelect.addEventListener('change', () => {
+            calendarYear = parseInt(yearSelect.value);
+            renderCalendar();
+        });
+    }
+
+    if (!prevBtn.dataset.hasListener) {
+        prevBtn.dataset.hasListener = "true";
+        prevBtn.addEventListener('click', () => {
+            if (calendarMonth === 0) {
+                calendarMonth = 11;
+                calendarYear--;
+                yearSelect.value = calendarYear;
+            } else {
+                calendarMonth--;
+            }
+            monthSelect.value = calendarMonth;
+            renderCalendar();
+        });
+    }
+
+    if (!nextBtn.dataset.hasListener) {
+        nextBtn.dataset.hasListener = "true";
+        nextBtn.addEventListener('click', () => {
+            if (calendarMonth === 11) {
+                calendarMonth = 0;
+                calendarYear++;
+                yearSelect.value = calendarYear;
+            } else {
+                calendarMonth++;
+            }
+            monthSelect.value = calendarMonth;
+            renderCalendar();
+        });
+    }
+
+    if (!todayBtn.dataset.hasListener) {
+        todayBtn.dataset.hasListener = "true";
+        todayBtn.addEventListener('click', () => {
+            const today = new Date();
+            calendarMonth = today.getMonth();
+            calendarYear = today.getFullYear();
+            monthSelect.value = calendarMonth;
+            yearSelect.value = calendarYear;
+            renderCalendar();
+        });
+    }
+
+    // Fetch initial meetings
+    try {
+        const res = await fetch('/api/calendar/meetings');
+        if (res.ok) {
+            academicEvents = await res.json();
+        }
+    } catch (e) {
+        console.error('Error fetching meetings:', e);
+    }
+
+    // Fetch initial class timetable
+    try {
+        const res = await fetch('/api/calendar/timetable');
+        if (res.ok) {
+            teacherSchedule = await res.json();
+        }
+    } catch (e) {
+        console.error('Error fetching timetable:', e);
+    }
+
+    // Render calendar
+    renderCalendar();
+}
+
+async function fetchPublicHolidays(year) {
+    if (publicHolidays[year]) return publicHolidays[year];
+    
+    const fallbackHolidays = [
+        { date: `${year}-01-26`, name: "Republic Day", localName: "Republic Day" },
+        { date: `${year}-03-02`, name: "Holi", localName: "Holi" },
+        { date: `${year}-04-02`, name: "Good Friday", localName: "Good Friday" },
+        { date: `${year}-04-14`, name: "Ambedkar Jayanti", localName: "Ambedkar Jayanti" },
+        { date: `${year}-05-01`, name: "May Day", localName: "May Day" },
+        { date: `${year}-08-15`, name: "Independence Day", localName: "Independence Day" },
+        { date: `${year}-09-04`, name: "Janmashtami", localName: "Janmashtami" },
+        { date: `${year}-10-02`, name: "Gandhi Jayanti", localName: "Gandhi Jayanti" },
+        { date: `${year}-10-20`, name: "Dussehra", localName: "Dussehra" },
+        { date: `${year}-11-08`, name: "Diwali", localName: "Diwali" },
+        { date: `${year}-12-25`, name: "Christmas Day", localName: "Christmas Day" }
+    ];
+
+    try {
+        const res = await fetch(`/api/calendar/holidays`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data && data.length > 0) {
+                publicHolidays[year] = data;
+                return data;
+            }
+        }
+    } catch (e) {
+        console.error(`Error fetching holidays for ${year}:`, e);
+    }
+    
+    publicHolidays[year] = fallbackHolidays;
+    return fallbackHolidays;
+}
+
+async function renderCalendar() {
+    const daysGrid = document.getElementById('calendar-days-grid');
+    if (!daysGrid) return;
+
+    daysGrid.innerHTML = '';
+
+    // Render 7-column header showing Mon - Sun
+    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    weekdays.forEach(day => {
+        const header = document.createElement('div');
+        header.className = 'calendar-day-header text-center font-semibold py-2 text-neutral-400 text-sm';
+        header.innerText = day;
+        daysGrid.appendChild(header);
+    });
+
+    // Get holidays for the current calendar year
+    const yearHolidays = await fetchPublicHolidays(calendarYear);
+
+    // Days in current month
+    const totalDays = new Date(calendarYear, calendarMonth + 1, 0).getDate();
+    
+    // Day index of first day (0 = Sunday, 1 = Monday...) -> map to 0=Mon, 6=Sun
+    let firstDayIndex = new Date(calendarYear, calendarMonth, 1).getDay();
+    firstDayIndex = firstDayIndex === 0 ? 6 : firstDayIndex - 1;
+
+    // Fill preceding empty cells
+    for (let i = 0; i < firstDayIndex; i++) {
+        const emptyCell = document.createElement('div');
+        emptyCell.className = 'calendar-day-cell other-month opacity-20 pointer-events-none h-32 min-h-[120px] border border-neutral-800';
+        daysGrid.appendChild(emptyCell);
+    }
+
+    // Today's date reference
+    const today = new Date();
+    const isTodayInActiveMonth = today.getMonth() === calendarMonth && today.getFullYear() === calendarYear;
+
+    // Render cells for days
+    for (let day = 1; day <= totalDays; day++) {
+        const cell = document.createElement('div');
+        cell.className = 'calendar-day-cell h-32 min-h-[120px] p-2 border border-neutral-800/60 rounded flex flex-col justify-between transition-all';
+
+        // Check if Sunday
+        const dateObj = new Date(calendarYear, calendarMonth, day);
+        const isSunday = dateObj.getDay() === 0;
+        const weekdayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+        
+        if (isSunday) {
+            cell.className += ' bg-neutral-800/40 text-neutral-500 pointer-events-none';
+        } else {
+            cell.className += ' cursor-pointer hover:bg-neutral-800/30';
+        }
+
+        // Highlight current day if active
+        if (isTodayInActiveMonth && today.getDate() === day) {
+            cell.className += ' calendar-current-day border-2 border-blue-500';
+        }
+
+        const dateStr = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+        // Add day cell click listener
+        if (!isSunday) {
+            cell.addEventListener('click', () => {
+                const detailModal = document.getElementById('teacher-calendar-detail-modal');
+                const titleEl = document.getElementById('detail-modal-title');
+                const bodyEl = document.getElementById('detail-modal-body');
+                if (!detailModal || !bodyEl || !titleEl) return;
+
+                let html = '';
+                if (calendarFilter === 'meetings') {
+                    titleEl.innerText = `Schedule for ${dateStr}`;
+                    const dayAcademicEvents = academicEvents.filter(e => e.date === dateStr);
+                    const dayHolidays = yearHolidays.filter(h => h.date === dateStr);
+
+                    if (dayAcademicEvents.length === 0 && dayHolidays.length === 0) {
+                        html = '<p class="text-neutral-400 text-center py-4">No meetings or events scheduled for this day.</p>';
+                    } else {
+                        dayAcademicEvents.forEach(e => {
+                            html += `
+                                <div class="p-3 rounded border border-blue-500/20 bg-blue-800/10 flex flex-col gap-1">
+                                    <div class="flex justify-between items-center">
+                                        <span class="font-bold text-blue-400 text-sm truncate whitespace-nowrap overflow-hidden">${e.title}</span>
+                                        <span class="text-xs text-neutral-400">${e.time || ''}</span>
+                                    </div>
+                                    <span class="text-xs text-neutral-300">${e.description || 'No description'}</span>
+                                </div>
+                            `;
+                        });
+                        dayHolidays.forEach(h => {
+                            html += `
+                                <div class="p-3 rounded border border-red-500/20 bg-red-800/10 flex flex-col gap-1">
+                                    <div class="flex justify-between items-center">
+                                        <span class="font-bold text-red-400 text-sm truncate whitespace-nowrap overflow-hidden">🌴 ${h.localName || h.name}</span>
+                                        <span class="text-xs text-red-400">Public Holiday</span>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    }
+                } else {
+                    titleEl.innerText = `Classes on ${weekdayName} (${dateStr})`;
+                    const dayClasses = teacherSchedule.filter(s => s.day === weekdayName);
+                    const dayHolidays = yearHolidays.filter(h => h.date === dateStr);
+
+                    if (dayHolidays.length > 0) {
+                        dayHolidays.forEach(h => {
+                            html += `
+                                <div class="p-3 rounded border border-red-500/20 bg-red-800/10 mb-2">
+                                    <span class="font-bold text-red-400 text-sm truncate whitespace-nowrap overflow-hidden">🌴 Public Holiday: ${h.localName || h.name}</span>
+                                </div>
+                            `;
+                        });
+                    }
+
+                    if (dayClasses.length === 0) {
+                        html += '<p class="text-neutral-400 text-center py-4">No classes scheduled for ' + weekdayName + '.</p>';
+                    } else {
+                        dayClasses.forEach(c => {
+                            html += `
+                                <div class="p-3 rounded border border-purple-500/20 bg-purple-800/10 flex flex-col gap-1">
+                                    <div class="flex justify-between items-center">
+                                        <span class="font-bold text-purple-400 text-sm truncate whitespace-nowrap overflow-hidden">📖 ${c.subject}</span>
+                                        <span class="text-xs text-neutral-400">${c.time}</span>
+                                    </div>
+                                    <div class="flex justify-between items-center text-xs text-neutral-300">
+                                        <span>Classroom: <strong class="text-purple-300">${c.class}</strong></span>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    }
+                }
+
+                bodyEl.innerHTML = html;
+                detailModal.classList.remove('hidden');
+            });
+        }
+
+        // Top left number label
+        const numberLabel = document.createElement('div');
+        numberLabel.className = 'calendar-day-number text-left text-xs font-semibold';
+        numberLabel.innerText = day;
+        cell.appendChild(numberLabel);
+
+        // Container for events in this cell
+        const eventsContainer = document.createElement('div');
+        eventsContainer.className = 'calendar-events-list flex flex-col gap-1 overflow-y-auto max-h-[80px] mt-1';
+
+        // Public holidays displayed in both views
+        const dayHolidays = yearHolidays.filter(h => h.date === dateStr);
+        dayHolidays.forEach(h => {
+            const badge = document.createElement('span');
+            badge.className = 'calendar-event-badge bg-red-900/40 text-red-400 px-1.5 py-0.5 rounded text-[10px] truncate whitespace-nowrap overflow-hidden max-w-full block border border-red-500/20';
+            badge.innerText = `🌴 ${h.localName || h.name}`;
+            badge.title = h.name;
+            eventsContainer.appendChild(badge);
+        });
+
+        if (calendarFilter === 'meetings') {
+            // Filter academic events / meetings
+            const dayAcademicEvents = academicEvents.filter(e => e.date === dateStr);
+            dayAcademicEvents.forEach(e => {
+                const badge = document.createElement('span');
+                badge.className = 'calendar-event-badge bg-blue-800/30 text-blue-400 px-1.5 py-0.5 rounded text-[10px] truncate whitespace-nowrap overflow-hidden max-w-full block border border-blue-500/20';
+                badge.innerText = `${e.type === 'meeting' ? '💼' : '🎓'} ${e.title}`;
+                badge.title = e.title;
+                eventsContainer.appendChild(badge);
+            });
+        } else {
+            // Filter class timetable
+            if (!isSunday) {
+                const dayClasses = teacherSchedule.filter(s => s.day === weekdayName);
+                dayClasses.forEach(c => {
+                    const badge = document.createElement('span');
+                    badge.className = 'calendar-event-badge bg-purple-800/30 text-purple-400 px-1.5 py-0.5 rounded text-[10px] truncate whitespace-nowrap overflow-hidden max-w-full block border border-purple-500/20';
+                    badge.innerText = `📖 ${c.subject} (${c.class})`;
+                    badge.title = `${c.subject} (${c.class}) - ${c.time}`;
+                    eventsContainer.appendChild(badge);
+                });
+            }
+        }
+
+        cell.appendChild(eventsContainer);
+        daysGrid.appendChild(cell);
+    }
+}
+
+
+// Admin Calendar Management State & Logic
+let adminCalendarYear = 2026;
+let adminCalendarMonth = 6; // July
+let adminEvents = [];
+let adminCalendarFilter = 'meetings'; // 'meetings' or 'timetable'
+
+async function initAdminCalendar() {
+    const monthSelect = document.getElementById('admin-calendar-month-select');
+    const yearSelect = document.getElementById('admin-calendar-year-select');
+    const prevBtn = document.getElementById('admin-calendar-prev-month');
+    const nextBtn = document.getElementById('admin-calendar-next-month');
+    const todayBtn = document.getElementById('admin-calendar-today-btn');
+    const addEventBtn = document.getElementById('admin-add-event-btn');
+
+    if (!monthSelect || !yearSelect) return;
+
+    // Filter selector and modal initialization
+    const filterSelect = document.getElementById('admin-calendar-filter-select');
+    if (filterSelect) {
+        filterSelect.value = adminCalendarFilter;
+        if (!filterSelect.dataset.hasListener) {
+            filterSelect.dataset.hasListener = "true";
+            filterSelect.addEventListener('change', () => {
+                adminCalendarFilter = filterSelect.value;
+                renderAdminCalendar();
+            });
+        }
+    }
+
+    const timetableModal = document.getElementById('admin-timetable-modal');
+    const closeTimetableModalBtn = document.getElementById('close-timetable-modal-btn');
+    if (timetableModal && closeTimetableModalBtn && !closeTimetableModalBtn.dataset.hasListener) {
+        closeTimetableModalBtn.dataset.hasListener = "true";
+        closeTimetableModalBtn.addEventListener('click', () => {
+            timetableModal.classList.add('hidden');
+        });
+        timetableModal.addEventListener('click', (e) => {
+            if (e.target === timetableModal) {
+                timetableModal.classList.add('hidden');
+            }
+        });
+    }
+
+    setupAdminTimetableFormListener();
+
+    // Populate Year Select
+    yearSelect.innerHTML = '';
+    const currentYear = new Date().getFullYear();
+    for (let y = currentYear - 2; y <= currentYear + 2; y++) {
+        const opt = document.createElement('option');
+        opt.value = y;
+        opt.innerText = y;
+        if (y === adminCalendarYear) opt.selected = true;
+        yearSelect.appendChild(opt);
+    }
+
+    // Set Initial values
+    monthSelect.value = adminCalendarMonth;
+    yearSelect.value = adminCalendarYear;
+
+    // Listeners
+    if (!monthSelect.dataset.hasListener) {
+        monthSelect.dataset.hasListener = "true";
+        monthSelect.addEventListener('change', () => {
+            adminCalendarMonth = parseInt(monthSelect.value);
+            renderAdminCalendar();
+        });
+    }
+
+    if (!yearSelect.dataset.hasListener) {
+        yearSelect.dataset.hasListener = "true";
+        yearSelect.addEventListener('change', () => {
+            adminCalendarYear = parseInt(yearSelect.value);
+            renderAdminCalendar();
+        });
+    }
+
+    if (!prevBtn.dataset.hasListener) {
+        prevBtn.dataset.hasListener = "true";
+        prevBtn.addEventListener('click', () => {
+            if (adminCalendarMonth === 0) {
+                adminCalendarMonth = 11;
+                adminCalendarYear--;
+                yearSelect.value = adminCalendarYear;
+            } else {
+                adminCalendarMonth--;
+            }
+            monthSelect.value = adminCalendarMonth;
+            renderAdminCalendar();
+        });
+    }
+
+    if (!nextBtn.dataset.hasListener) {
+        nextBtn.dataset.hasListener = "true";
+        nextBtn.addEventListener('click', () => {
+            if (adminCalendarMonth === 11) {
+                adminCalendarMonth = 0;
+                adminCalendarYear++;
+                yearSelect.value = adminCalendarYear;
+            } else {
+                adminCalendarMonth++;
+            }
+            monthSelect.value = adminCalendarMonth;
+            renderAdminCalendar();
+        });
+    }
+
+    if (!todayBtn.dataset.hasListener) {
+        todayBtn.dataset.hasListener = "true";
+        todayBtn.addEventListener('click', () => {
+            const today = new Date();
+            adminCalendarMonth = today.getMonth();
+            adminCalendarYear = today.getFullYear();
+            monthSelect.value = adminCalendarMonth;
+            yearSelect.value = adminCalendarYear;
+            renderAdminCalendar();
+        });
+    }
+
+    if (!addEventBtn.dataset.hasListener) {
+        addEventBtn.dataset.hasListener = "true";
+        addEventBtn.addEventListener('click', () => {
+            const todayStr = `${adminCalendarYear}-${String(adminCalendarMonth + 1).padStart(2, '0')}-01`;
+            openCalendarEventModal(null, todayStr);
+        });
+    }
+
+    // Modal forms listeners
+    setupCalendarEventModalListeners();
+
+    // Fetch initial academic events
+    await fetchAdminEvents();
+
+    // Fetch initial timetable classes
+    try {
+        const res = await fetch('/api/calendar/timetable');
+        if (res.ok) {
+            teacherSchedule = await res.json();
+        }
+    } catch (e) {
+        console.error('Error fetching admin timetable:', e);
+    }
+
+    // Render calendar
+    renderAdminCalendar();
+}
+
+async function fetchAdminEvents() {
+    try {
+        const res = await fetch('/api/calendar/meetings');
+        if (res.ok) {
+            adminEvents = await res.json();
+            // Sync with local teacher view calendar
+            academicEvents = adminEvents;
+        }
+    } catch (e) {
+        console.error('Error fetching admin events:', e);
+    }
+}
+
+async function renderAdminCalendar() {
+    const daysGrid = document.getElementById('admin-calendar-days-grid');
+    if (!daysGrid) return;
+
+    daysGrid.innerHTML = '';
+
+    // Render 7-column header showing Mon - Sun
+    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    weekdays.forEach(day => {
+        const header = document.createElement('div');
+        header.className = 'calendar-day-header text-center font-semibold py-2 text-neutral-400 text-sm';
+        header.innerText = day;
+        daysGrid.appendChild(header);
+    });
+
+    // Get holidays for the current calendar year
+    const yearHolidays = await fetchPublicHolidays(adminCalendarYear);
+
+    // Days in current month
+    const totalDays = new Date(adminCalendarYear, adminCalendarMonth + 1, 0).getDate();
+    
+    // Day index of first day (0 = Sunday, 1 = Monday...) -> map to 0=Mon, 6=Sun
+    let firstDayIndex = new Date(adminCalendarYear, adminCalendarMonth, 1).getDay();
+    firstDayIndex = firstDayIndex === 0 ? 6 : firstDayIndex - 1;
+
+    // Fill preceding empty cells
+    for (let i = 0; i < firstDayIndex; i++) {
+        const emptyCell = document.createElement('div');
+        emptyCell.className = 'calendar-day-cell other-month opacity-20 pointer-events-none h-32 min-h-[120px] border border-neutral-800';
+        daysGrid.appendChild(emptyCell);
+    }
+
+    // Today's date reference
+    const today = new Date();
+    const isTodayInActiveMonth = today.getMonth() === adminCalendarMonth && today.getFullYear() === adminCalendarYear;
+
+    // Render cells for days
+    for (let day = 1; day <= totalDays; day++) {
+        const cell = document.createElement('div');
+        cell.className = 'calendar-day-cell admin-day-cell h-32 min-h-[120px] p-2 border border-neutral-800/60 rounded flex flex-col justify-between transition-all';
+
+        // Check if Sunday
+        const dateObj = new Date(adminCalendarYear, adminCalendarMonth, day);
+        const isSunday = dateObj.getDay() === 0;
+        
+        if (isSunday) {
+            cell.className += ' bg-neutral-800/40 text-neutral-500 pointer-events-none';
+        }
+
+        // Highlight current day if active
+        if (isTodayInActiveMonth && today.getDate() === day) {
+            cell.className += ' calendar-current-day border-2 border-blue-500';
+        }
+
+        const dateStr = `${adminCalendarYear}-${String(adminCalendarMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+        const weekdayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+
+        // Clicking on the cell opens appropriate config modal
+        if (!isSunday) {
+            cell.addEventListener('click', (e) => {
+                // If clicking an event badge, don't trigger cell click
+                if (e.target.closest('.admin-event-badge')) return;
+                
+                if (adminCalendarFilter === 'meetings') {
+                    openCalendarEventModal(null, dateStr);
+                } else {
+                    openAdminTimetableModal(weekdayName);
+                }
+            });
+        }
+
+        // Top left number label
+        const numberLabel = document.createElement('div');
+        numberLabel.className = 'calendar-day-number text-left text-xs font-semibold';
+        numberLabel.innerText = day;
+        cell.appendChild(numberLabel);
+
+        // Container for events in this cell
+        const eventsContainer = document.createElement('div');
+        eventsContainer.className = 'calendar-events-list flex flex-col gap-1 overflow-y-auto max-h-[80px] mt-1';
+
+        // Public holidays displayed in both views
+        const dayHolidays = yearHolidays.filter(h => h.date === dateStr);
+        dayHolidays.forEach(h => {
+            const badge = document.createElement('span');
+            badge.className = 'calendar-event-badge bg-red-900/40 text-red-400 px-1.5 py-0.5 rounded text-[10px] truncate whitespace-nowrap overflow-hidden max-w-full block border border-red-500/20';
+            badge.innerText = `🌴 ${h.localName || h.name}`;
+            badge.title = h.name;
+            eventsContainer.appendChild(badge);
+        });
+
+        if (adminCalendarFilter === 'meetings') {
+            // Filter academic events / meetings
+            const dayAcademicEvents = adminEvents.filter(e => e.date === dateStr);
+            dayAcademicEvents.forEach(e => {
+                const badge = document.createElement('span');
+                badge.className = 'calendar-event-badge admin-event-badge bg-blue-800/30 text-blue-400 px-1.5 py-0.5 rounded text-[10px] truncate whitespace-nowrap overflow-hidden max-w-full block border border-blue-500/20';
+                badge.innerText = `${e.type === 'meeting' ? '💼' : '🎓'} ${e.title}`;
+                badge.title = e.title;
+                
+                // Edit event on click
+                badge.addEventListener('click', (ev) => {
+                    ev.stopPropagation();
+                    openCalendarEventModal(e);
+                });
+                eventsContainer.appendChild(badge);
+            });
+        } else {
+            // Filter class timetable
+            if (!isSunday) {
+                const dayClasses = teacherSchedule.filter(s => s.day === weekdayName);
+                dayClasses.forEach(c => {
+                    const badge = document.createElement('span');
+                    badge.className = 'calendar-event-badge admin-event-badge bg-purple-800/30 text-purple-400 px-1.5 py-0.5 rounded text-[10px] truncate whitespace-nowrap overflow-hidden max-w-full block border border-purple-500/20';
+                    badge.innerText = `📖 ${c.subject} (${c.class})`;
+                    badge.title = `${c.subject} (${c.class}) - ${c.time}`;
+                    
+                    // Clicking class timetable item will also open timetable management modal
+                    badge.addEventListener('click', (ev) => {
+                        ev.stopPropagation();
+                        openAdminTimetableModal(weekdayName);
+                    });
+                    eventsContainer.appendChild(badge);
+                });
+            }
+        }
+
+        cell.appendChild(eventsContainer);
+        daysGrid.appendChild(cell);
+    }
+}
+
+function updateEventDeptLabel() {
+    const checkboxes = document.querySelectorAll('.dept-checkbox:checked');
+    const allChecked = document.getElementById('dept-all').checked;
+    const label = document.getElementById('event-dept-label');
+    if (!label) return;
+
+    if (allChecked) {
+        label.innerText = 'All Departments';
+    } else if (checkboxes.length === 0) {
+        label.innerText = 'Select Depts';
+    } else if (checkboxes.length === document.querySelectorAll('.dept-checkbox').length) {
+        document.getElementById('dept-all').checked = true;
+        label.innerText = 'All Departments';
+    } else {
+        const names = Array.from(checkboxes).map(cb => {
+            const val = cb.value;
+            if (val.includes('&')) {
+                // Shorten names for label if needed
+                return val.split(' ')[0];
+            }
+            return val;
+        });
+        label.innerText = names.join(', ');
+    }
+}
+
+function openCalendarEventModal(eventObj = null, defaultDateStr = null) {
+    const modal = document.getElementById('admin-calendar-event-modal');
+    const modalTitle = document.getElementById('event-modal-title');
+    const deleteBtn = document.getElementById('event-delete-btn');
+    
+    const eventIdInput = document.getElementById('event-id');
+    const titleInput = document.getElementById('event-title');
+    const dateInput = document.getElementById('event-date');
+    const timeInput = document.getElementById('event-time');
+    const typeInput = document.getElementById('event-type');
+    const descInput = document.getElementById('event-description');
+
+    if (!modal) return;
+
+    const allCheckbox = document.getElementById('dept-all');
+    const deptCheckboxes = document.querySelectorAll('.dept-checkbox');
+
+    if (eventObj) {
+        modalTitle.innerText = "Edit Academic Event";
+        deleteBtn.classList.remove('hidden');
+        
+        eventIdInput.value = eventObj.id || '';
+        titleInput.value = eventObj.title || '';
+        dateInput.value = eventObj.date || '';
+        timeInput.value = eventObj.time || '';
+        typeInput.value = eventObj.type || 'meeting';
+        descInput.value = eventObj.description || '';
+
+        let depts = [];
+        if (eventObj.departments) {
+            depts = eventObj.departments;
+        } else if (eventObj.department) {
+            depts = eventObj.department.split(',').map(d => d.trim()).filter(Boolean);
+        }
+
+        const isAll = depts.includes('All') || depts.length === deptCheckboxes.length;
+        if (allCheckbox) allCheckbox.checked = isAll;
+        deptCheckboxes.forEach(cb => {
+            cb.checked = isAll || depts.includes(cb.value);
+        });
+    } else {
+        modalTitle.innerText = "Add Academic Event";
+        deleteBtn.classList.add('hidden');
+        
+        eventIdInput.value = '';
+        titleInput.value = '';
+        dateInput.value = defaultDateStr || '';
+        timeInput.value = '10:00';
+        typeInput.value = 'meeting';
+        descInput.value = '';
+
+        if (allCheckbox) allCheckbox.checked = true;
+        deptCheckboxes.forEach(cb => {
+            cb.checked = true;
+        });
+    }
+    
+    updateEventDeptLabel();
+    modal.classList.remove('hidden');
+}
+
+function setupCalendarEventModalListeners() {
+    const modal = document.getElementById('admin-calendar-event-modal');
+    const closeBtn = document.getElementById('close-event-modal-btn');
+    const deleteBtn = document.getElementById('event-delete-btn');
+    const form = document.getElementById('admin-event-form');
+
+    if (!modal) return;
+
+    // Dropdown toggling logic
+    const deptToggle = document.getElementById('event-dept-toggle');
+    const deptOptions = document.getElementById('event-dept-options');
+    if (deptToggle && deptOptions && !deptToggle.dataset.hasListener) {
+        deptToggle.dataset.hasListener = "true";
+        deptToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            deptOptions.classList.toggle('hidden');
+        });
+        
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#event-dept-dropdown')) {
+                deptOptions.classList.add('hidden');
+            }
+        });
+    }
+
+    // Checkbox toggling logic
+    const allCheckbox = document.getElementById('dept-all');
+    const deptCheckboxes = document.querySelectorAll('.dept-checkbox');
+
+    if (allCheckbox && !allCheckbox.dataset.hasListener) {
+        allCheckbox.dataset.hasListener = "true";
+        allCheckbox.addEventListener('change', () => {
+            const checked = allCheckbox.checked;
+            deptCheckboxes.forEach(cb => {
+                cb.checked = checked;
+            });
+            updateEventDeptLabel();
+        });
+    }
+
+    deptCheckboxes.forEach(cb => {
+        if (!cb.dataset.hasListener) {
+            cb.dataset.hasListener = "true";
+            cb.addEventListener('change', () => {
+                const totalDepts = deptCheckboxes.length;
+                const checkedDepts = document.querySelectorAll('.dept-checkbox:checked').length;
+                allCheckbox.checked = (totalDepts === checkedDepts);
+                updateEventDeptLabel();
+            });
+        }
+    });
+
+    if (!closeBtn.dataset.hasListener) {
+        closeBtn.dataset.hasListener = "true";
+        closeBtn.addEventListener('click', () => {
+            modal.classList.add('hidden');
+        });
+        
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.add('hidden');
+            }
+        });
+    }
+
+    if (!deleteBtn.dataset.hasListener) {
+        deleteBtn.dataset.hasListener = "true";
+        deleteBtn.addEventListener('click', async () => {
+            const eventId = document.getElementById('event-id').value;
+            if (!eventId) return;
+
+            const verify = confirm("Are you sure you want to delete this scheduled event?");
+            if (!verify) return;
+
+            try {
+                const res = await fetch(`/api/calendar/meetings/${eventId}`, {
+                    method: 'DELETE'
+                });
+                if (res.ok) {
+                    modal.classList.add('hidden');
+                    await fetchAdminEvents();
+                    renderAdminCalendar();
+                } else {
+                    alert('Failed to delete event.');
+                }
+            } catch (e) {
+                alert('Network error while deleting event.');
+            }
+        });
+    }
+
+    if (!form.dataset.hasListener) {
+        form.dataset.hasListener = "true";
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const eventId = document.getElementById('event-id').value;
+            
+            const checkedDepts = [];
+            if (document.getElementById('dept-all').checked) {
+                checkedDepts.push('All');
+            } else {
+                document.querySelectorAll('.dept-checkbox:checked').forEach(cb => {
+                    checkedDepts.push(cb.value);
+                });
+            }
+
+            const payload = {
+                title: document.getElementById('event-title').value.trim(),
+                date: document.getElementById('event-date').value,
+                time: document.getElementById('event-time').value,
+                type: document.getElementById('event-type').value,
+                departments: checkedDepts,
+                department: checkedDepts.join(', '),
+                description: document.getElementById('event-description').value.trim()
+            };
+
+            const method = eventId ? 'PUT' : 'POST';
+            if (eventId) {
+                payload.id = eventId;
+            }
+
+            try {
+                const url = eventId ? `/api/calendar/meetings/${eventId}` : '/api/calendar/meetings';
+                const res = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    modal.classList.add('hidden');
+                    await fetchAdminEvents();
+                    renderAdminCalendar();
+                } else {
+                    const err = await res.json();
+                    alert(`Failed to save event: ${err.detail || 'Unknown error'}`);
+                }
+            } catch (e) {
+                alert('Network error while saving event.');
+            }
+        });
+    }
+}
+
+function openAdminTimetableModal(clickedDayName = 'Monday') {
+    const modal = document.getElementById('admin-timetable-modal');
+    if (!modal) return;
+
+    // Reset checkboxes and check the clicked day
+    const checkboxes = document.querySelectorAll('input[name="timetable-days"]');
+    checkboxes.forEach(cb => {
+        cb.checked = (cb.value === clickedDayName);
+    });
+
+    // Populate current timetable sessions list
+    renderAdminTimetableSessionsList();
+
+    modal.classList.remove('hidden');
+}
+
+function renderAdminTimetableSessionsList() {
+    const listContainer = document.getElementById('timetable-sessions-list');
+    if (!listContainer) return;
+
+    listContainer.innerHTML = '';
+    if (teacherSchedule.length === 0) {
+        listContainer.innerHTML = '<p class="text-neutral-400 text-xs text-center py-2">No sessions scheduled.</p>';
+        return;
+    }
+
+    teacherSchedule.forEach((s, idx) => {
+        const item = document.createElement('div');
+        item.className = 'flex justify-between items-center bg-neutral-800/50 p-2 rounded border border-neutral-700/50 text-xs';
+        item.innerHTML = `
+            <div>
+                <strong class="text-purple-400">${s.subject}</strong> (${s.class})
+                <div class="text-[10px] text-neutral-400">${s.day} | ${s.time}</div>
+            </div>
+            <button class="btn-delete-session text-red-400 hover:text-red-300 font-bold" style="background:none; border:none; cursor:pointer;" onclick="deleteTimetableSession(${idx})">Delete</button>
+        `;
+        listContainer.appendChild(item);
+    });
+}
+
+async function deleteTimetableSession(index) {
+    const verify = confirm("Are you sure you want to delete this class session?");
+    if (!verify) return;
+
+    // Remove the item
+    teacherSchedule.splice(index, 1);
+
+    // Call endpoint to save
+    await saveTeacherSchedule();
+    renderAdminTimetableSessionsList();
+    renderAdminCalendar();
+    // Also update candidate calendar if active
+    renderCalendar();
+}
+window.deleteTimetableSession = deleteTimetableSession;
+
+async function saveTeacherSchedule() {
+    try {
+        const res = await fetch('/api/teacher/schedule', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                teacher_username: 'teacher',
+                schedule: teacherSchedule
+            })
+        });
+        if (!res.ok) {
+            alert('Failed to save teacher schedule to backend.');
+        }
+    } catch (e) {
+        console.error('Error saving teacher schedule:', e);
+        alert('Network error while saving schedule.');
+    }
+}
+
+function setupAdminTimetableFormListener() {
+    const form = document.getElementById('admin-timetable-form');
+    if (!form) return;
+
+    if (!form.dataset.hasListener) {
+        form.dataset.hasListener = "true";
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const subject = document.getElementById('timetable-subject').value.trim();
+            const time = document.getElementById('timetable-time').value.trim();
+            const classroom = document.getElementById('timetable-classroom').value.trim();
+
+            const checkedDays = [];
+            const checkboxes = document.querySelectorAll('input[name="timetable-days"]:checked');
+            checkboxes.forEach(cb => checkedDays.push(cb.value));
+
+            if (checkedDays.length === 0) {
+                alert('Please select at least one active day of the week.');
+                return;
+            }
+
+            // Create new schedule items for each selected day
+            checkedDays.forEach(day => {
+                teacherSchedule.push({
+                    day: day,
+                    time: time,
+                    class: classroom,
+                    subject: subject
+                });
+            });
+
+            // Save to database
+            await saveTeacherSchedule();
+
+            // Clear inputs
+            document.getElementById('timetable-subject').value = '';
+            document.getElementById('timetable-time').value = '';
+            document.getElementById('timetable-classroom').value = '';
+
+            // Update UI
+            renderAdminTimetableSessionsList();
+            renderAdminCalendar();
+            renderCalendar();
+
+            alert('Timetable sessions saved successfully!');
+        });
+    }
+}

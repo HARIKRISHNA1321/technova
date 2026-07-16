@@ -480,7 +480,7 @@ async def chatbot_endpoint(req: ChatRequest):
                 f"Response:"
             )
             
-            
+
             streamed_any = False
             try:
                 import asyncio
@@ -1162,6 +1162,466 @@ def trigger_action(req: ActionRequest, background_tasks: BackgroundTasks) -> dic
 
     store.save_state(state)
     return {"status": "success", "state": state}
+
+class MeetingSchema(BaseModel):
+    id: Optional[str] = None
+    title: str
+    description: str
+    event_date: str
+    event_time: str
+    created_at: Optional[str] = None
+    departments: Optional[List[str]] = None
+    department: Optional[str] = None
+    # backward compatibility keys
+    date: Optional[str] = None
+    time: Optional[str] = None
+    type: Optional[str] = "meeting"
+
+class TimetableClassSchema(BaseModel):
+    id: Optional[str] = None
+    subject_name: str
+    time_slot: str
+    classroom: str
+    day_of_week: str
+    # backward compatibility keys
+    subject: Optional[str] = None
+    time: Optional[str] = None
+    class_: Optional[str] = None
+    day: Optional[str] = None
+
+    class Config:
+        populate_by_name = True
+
+# ------------------ MEETINGS ENDPOINTS ------------------
+@router.get("/api/calendar/meetings")
+def get_calendar_meetings() -> List[dict]:
+    print("[GET /api/calendar/meetings] Fetching meetings...")
+    store = LocalStateStore()
+    state = store.load_state()
+    
+    # Try fetching from Supabase 'meetings' table first
+    from supabase import create_client
+    supabase_url = os.getenv("SUPABASE_URL", "").strip()
+    supabase_key = os.getenv("SUPABASE_KEY", "").strip()
+    if supabase_url and supabase_key:
+        try:
+            client = create_client(supabase_url, supabase_key)
+            res = client.table("meetings").select("*").execute()
+            if res.data:
+                for m in res.data:
+                    m["date"] = m.get("event_date")
+                    m["time"] = m.get("event_time")
+                    m["type"] = "meeting"
+                return res.data
+        except Exception as e:
+            print(f"[Supabase Warning] Failed to fetch meetings table: {e}")
+            
+    # Fallback to local state
+    if "meetings" not in state:
+        if "events" in state:
+            state["meetings"] = state["events"]
+        else:
+            state["meetings"] = [
+                {"id": "1", "event_date": "2026-01-05", "title": "Spring Semester Begins", "event_time": "09:00", "description": "Classes commence"},
+                {"id": "2", "event_date": "2026-01-15", "title": "HOD Meeting", "event_time": "14:30", "description": "Monthly Department Head assembly"},
+                {"id": "3", "event_date": "2026-02-12", "title": "Mid-Term Syllabus Review", "event_time": "11:00", "description": "Syllabus progress checks"},
+                {"id": "4", "event_date": "2026-03-09", "title": "Research Seminar", "event_time": "15:00", "description": "Presentation on Emerging AI"},
+                {"id": "5", "event_date": "2026-03-20", "title": "Board of Studies Meeting", "event_time": "10:00", "description": "Curriculum planning board meeting"},
+                {"id": "6", "event_date": "2026-04-15", "title": "Internal Assessment-1", "event_time": "09:00", "description": "First mid-term assessment cycle"},
+                {"id": "7", "event_date": "2026-05-18", "title": "End Semester Exams Start", "event_time": "09:30", "description": "Theory exam cycle start"},
+                {"id": "8", "event_date": "2026-06-10", "title": "Grading & Evaluation Committee", "event_time": "14:00", "description": "Final grading review meeting"},
+                {"id": "9", "event_date": "2026-07-06", "title": "Monsoon Semester Registration", "event_time": "09:00", "description": "Monsoon semester registration & fees payment"},
+                {"id": "10", "event_date": "2026-07-15", "title": "Faculty Orientation Program", "event_time": "10:00", "description": "Orientation for new faculty & guidelines"},
+                {"id": "11", "event_date": "2026-07-24", "title": "Academic Council Meeting", "event_time": "11:30", "description": "Review of academic procedures & results"},
+                {"id": "12", "event_date": "2026-08-10", "title": "Unit Test 1", "event_time": "09:00", "description": "First academic unit test cycle"},
+                {"id": "13", "event_date": "2026-08-25", "title": "Department Review", "event_time": "15:30", "description": "August department review agenda"},
+                {"id": "14", "event_date": "2026-09-05", "title": "Teacher's Day Celebration", "event_time": "16:00", "description": "Teachers Day events"},
+                {"id": "15", "event_date": "2026-09-22", "title": "Mid-Semester Feedback", "event_time": "14:00", "description": "Faculty performance review based on student feedback"},
+                {"id": "16", "event_date": "2026-10-15", "title": "Project Phase-1 Review", "event_time": "10:00", "description": "Review of final year projects stage 1"},
+                {"id": "17", "event_date": "2026-10-28", "title": "Practical Exams", "event_time": "09:00", "description": "Lab examinations"},
+                {"id": "18", "event_date": "2026-11-16", "title": "End Semester Theory Exams", "event_time": "09:30", "description": "Final theory exam cycles"},
+                {"id": "19", "event_date": "2026-12-10", "title": "Winter Vacation Commences", "event_time": "17:00", "description": "Start of winter break"},
+                {"id": "20", "event_date": "2026-12-18", "title": "Annual Review Meeting", "event_time": "10:30", "description": "Year end progress review"}
+            ]
+        store.save_state(state)
+        
+    for m in state["meetings"]:
+        m["date"] = m.get("event_date") or m.get("date")
+        m["time"] = m.get("event_time") or m.get("time")
+        m["type"] = "meeting"
+        
+    return state["meetings"]
+
+@router.post("/api/calendar/meetings")
+def add_calendar_meeting(meeting: MeetingSchema) -> dict:
+    print(f"[POST /api/calendar/meetings] Adding meeting: {meeting.title}...")
+    store = LocalStateStore()
+    state = store.load_state()
+    
+    meeting_dict = meeting.model_dump()
+    if not meeting_dict.get("id"):
+        import uuid
+        meeting_dict["id"] = str(uuid.uuid4())
+        
+    # Support client sending date/time
+    if not meeting_dict.get("event_date") and meeting_dict.get("date"):
+        meeting_dict["event_date"] = meeting_dict.get("date")
+    if not meeting_dict.get("event_time") and meeting_dict.get("time"):
+        meeting_dict["event_time"] = meeting_dict.get("time")
+
+    if meeting_dict.get("departments"):
+        meeting_dict["department"] = ", ".join(meeting_dict["departments"])
+    elif meeting_dict.get("department"):
+        meeting_dict["departments"] = [d.strip() for d in meeting_dict["department"].split(",") if d.strip()]
+        
+    meeting_dict["created_at"] = meeting_dict.get("created_at") or datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Try Supabase first
+    from supabase import create_client
+    supabase_url = os.getenv("SUPABASE_URL", "").strip()
+    supabase_key = os.getenv("SUPABASE_KEY", "").strip()
+    if supabase_url and supabase_key:
+        try:
+            client = create_client(supabase_url, supabase_key)
+            res = client.table("meetings").insert(meeting_dict).execute()
+            if res.data:
+                return {"status": "success", "event": res.data[0]}
+        except Exception as e:
+            print(f"[Supabase Warning] Failed to insert meeting: {e}")
+            
+    # Fallback to local state
+    if "meetings" not in state:
+        get_calendar_meetings()
+        state = store.load_state()
+        
+    state["meetings"].append(meeting_dict)
+    store.save_state(state)
+    write_log("ADMIN_CALENDAR", f"Added meeting: '{meeting_dict['title']}' on {meeting_dict['event_date']}")
+    return {"status": "success", "event": meeting_dict}
+
+@router.put("/api/calendar/meetings/{id}")
+def update_calendar_meeting(id: str, meeting: MeetingSchema) -> dict:
+    print(f"[PUT /api/calendar/meetings/{id}] Updating meeting: {meeting.title}...")
+    store = LocalStateStore()
+    state = store.load_state()
+    
+    meeting_dict = meeting.model_dump()
+    meeting_dict["id"] = id
+    
+    if not meeting_dict.get("event_date") and meeting_dict.get("date"):
+        meeting_dict["event_date"] = meeting_dict.get("date")
+    if not meeting_dict.get("event_time") and meeting_dict.get("time"):
+        meeting_dict["event_time"] = meeting_dict.get("time")
+
+    if meeting_dict.get("departments"):
+        meeting_dict["department"] = ", ".join(meeting_dict["departments"])
+    elif meeting_dict.get("department"):
+        meeting_dict["departments"] = [d.strip() for d in meeting_dict["department"].split(",") if d.strip()]
+
+    # Try Supabase first
+    from supabase import create_client
+    supabase_url = os.getenv("SUPABASE_URL", "").strip()
+    supabase_key = os.getenv("SUPABASE_KEY", "").strip()
+    if supabase_url and supabase_key:
+        try:
+            client = create_client(supabase_url, supabase_key)
+            res = client.table("meetings").update(meeting_dict).eq("id", id).execute()
+            if res.data:
+                return {"status": "success", "event": res.data[0]}
+        except Exception as e:
+            print(f"[Supabase Warning] Failed to update meeting: {e}")
+            
+    # Fallback to local state
+    if "meetings" not in state:
+        get_calendar_meetings()
+        state = store.load_state()
+        
+    for i, m in enumerate(state["meetings"]):
+        if str(m.get("id")) == str(id):
+            state["meetings"][i] = meeting_dict
+            store.save_state(state)
+            write_log("ADMIN_CALENDAR", f"Updated meeting ID {id}: '{meeting.title}'")
+            return {"status": "success", "event": state["meetings"][i]}
+            
+    raise HTTPException(status_code=404, detail="Meeting not found.")
+
+@router.delete("/api/calendar/meetings/{id}")
+def delete_calendar_meeting(id: str) -> dict:
+    print(f"[DELETE /api/calendar/meetings/{id}] Deleting meeting...")
+    store = LocalStateStore()
+    state = store.load_state()
+    
+    # Try Supabase first
+    from supabase import create_client
+    supabase_url = os.getenv("SUPABASE_URL", "").strip()
+    supabase_key = os.getenv("SUPABASE_KEY", "").strip()
+    if supabase_url and supabase_key:
+        try:
+            client = create_client(supabase_url, supabase_key)
+            res = client.table("meetings").delete().eq("id", id).execute()
+            if res.data:
+                return {"status": "success", "message": "Meeting deleted successfully."}
+        except Exception as e:
+            print(f"[Supabase Warning] Failed to delete meeting: {e}")
+            
+    # Fallback to local state
+    if "meetings" not in state:
+        get_calendar_meetings()
+        state = store.load_state()
+        
+    for i, m in enumerate(state["meetings"]):
+        if str(m.get("id")) == str(id):
+            deleted = state["meetings"].pop(i)
+            store.save_state(state)
+            write_log("ADMIN_CALENDAR", f"Deleted meeting: '{deleted['title']}' ID {id}")
+            return {"status": "success", "message": "Meeting deleted successfully."}
+            
+    raise HTTPException(status_code=404, detail="Meeting not found.")
+
+
+# ------------------ TIMETABLE ENDPOINTS ------------------
+@router.get("/api/calendar/timetable")
+def get_calendar_timetable() -> List[dict]:
+    print("[GET /api/calendar/timetable] Fetching timetable...")
+    store = LocalStateStore()
+    state = store.load_state()
+    
+    # Try fetching from Supabase 'timetable_classes' table first
+    from supabase import create_client
+    supabase_url = os.getenv("SUPABASE_URL", "").strip()
+    supabase_key = os.getenv("SUPABASE_KEY", "").strip()
+    if supabase_url and supabase_key:
+        try:
+            client = create_client(supabase_url, supabase_key)
+            res = client.table("timetable_classes").select("*").execute()
+            if res.data:
+                for c in res.data:
+                    c["subject"] = c.get("subject_name")
+                    c["time"] = c.get("time_slot")
+                    c["class"] = c.get("classroom")
+                    c["day"] = c.get("day_of_week")
+                return res.data
+        except Exception as e:
+            print(f"[Supabase Warning] Failed to fetch timetable_classes table: {e}")
+            
+    # Fallback to local state
+    if "timetable_classes" not in state:
+        # Load from default teacher schedule if exists
+        teacher = state.get("teachers", {}).get("teacher", {})
+        if "schedule" in teacher:
+            raw_sched = teacher["schedule"]
+            migrated = []
+            for s in raw_sched:
+                migrated.append({
+                    "id": str(len(migrated) + 1),
+                    "subject_name": s.get("subject"),
+                    "time_slot": s.get("time"),
+                    "classroom": s.get("class"),
+                    "day_of_week": s.get("day")
+                })
+            state["timetable_classes"] = migrated
+        else:
+            state["timetable_classes"] = []
+        store.save_state(state)
+        
+    for c in state["timetable_classes"]:
+        c["subject"] = c.get("subject_name")
+        c["time"] = c.get("time_slot")
+        c["class"] = c.get("classroom")
+        c["day"] = c.get("day_of_week")
+        
+    return state["timetable_classes"]
+
+@router.post("/api/calendar/timetable")
+def add_timetable_class(t_class: TimetableClassSchema) -> dict:
+    print(f"[POST /api/calendar/timetable] Adding class session: {t_class.subject_name}...")
+    store = LocalStateStore()
+    state = store.load_state()
+    
+    t_dict = t_class.model_dump()
+    if not t_dict.get("id"):
+        import uuid
+        t_dict["id"] = str(uuid.uuid4())
+        
+    # Support legacy keys
+    if not t_dict.get("subject_name") and t_dict.get("subject"):
+        t_dict["subject_name"] = t_dict.get("subject")
+    if not t_dict.get("time_slot") and t_dict.get("time"):
+        t_dict["time_slot"] = t_dict.get("time")
+    if not t_dict.get("classroom") and t_dict.get("class_"):
+        t_dict["classroom"] = t_dict.get("class_")
+    if not t_dict.get("day_of_week") and t_dict.get("day"):
+        t_dict["day_of_week"] = t_dict.get("day")
+
+    # Try Supabase first
+    from supabase import create_client
+    supabase_url = os.getenv("SUPABASE_URL", "").strip()
+    supabase_key = os.getenv("SUPABASE_KEY", "").strip()
+    if supabase_url and supabase_key:
+        try:
+            client = create_client(supabase_url, supabase_key)
+            res = client.table("timetable_classes").insert(t_dict).execute()
+            if res.data:
+                update_legacy_teacher_schedule(state, store)
+                return {"status": "success", "class": res.data[0]}
+        except Exception as e:
+            print(f"[Supabase Warning] Failed to insert timetable class: {e}")
+            
+    # Fallback to local state
+    if "timetable_classes" not in state:
+        get_calendar_timetable()
+        state = store.load_state()
+        
+    state["timetable_classes"].append(t_dict)
+    store.save_state(state)
+    
+    update_legacy_teacher_schedule(state, store)
+    
+    write_log("ADMIN_CALENDAR", f"Added class session: '{t_dict['subject_name']}' on {t_dict['day_of_week']}")
+    return {"status": "success", "class": t_dict}
+
+@router.put("/api/calendar/timetable/{id}")
+def update_timetable_class(id: str, t_class: TimetableClassSchema) -> dict:
+    print(f"[PUT /api/calendar/timetable/{id}] Updating class session: {t_class.subject_name}...")
+    store = LocalStateStore()
+    state = store.load_state()
+    
+    t_dict = t_class.model_dump()
+    t_dict["id"] = id
+    
+    if not t_dict.get("subject_name") and t_dict.get("subject"):
+        t_dict["subject_name"] = t_dict.get("subject")
+    if not t_dict.get("time_slot") and t_dict.get("time"):
+        t_dict["time_slot"] = t_dict.get("time")
+    if not t_dict.get("classroom") and t_dict.get("class_"):
+        t_dict["classroom"] = t_dict.get("class_")
+    if not t_dict.get("day_of_week") and t_dict.get("day"):
+        t_dict["day_of_week"] = t_dict.get("day")
+
+    # Try Supabase first
+    from supabase import create_client
+    supabase_url = os.getenv("SUPABASE_URL", "").strip()
+    supabase_key = os.getenv("SUPABASE_KEY", "").strip()
+    if supabase_url and supabase_key:
+        try:
+            client = create_client(supabase_url, supabase_key)
+            res = client.table("timetable_classes").update(t_dict).eq("id", id).execute()
+            if res.data:
+                update_legacy_teacher_schedule(state, store)
+                return {"status": "success", "class": res.data[0]}
+        except Exception as e:
+            print(f"[Supabase Warning] Failed to update timetable class: {e}")
+            
+    # Fallback to local state
+    if "timetable_classes" not in state:
+        get_calendar_timetable()
+        state = store.load_state()
+        
+    for i, c in enumerate(state["timetable_classes"]):
+        if str(c.get("id")) == str(id):
+            state["timetable_classes"][i] = t_dict
+            store.save_state(state)
+            update_legacy_teacher_schedule(state, store)
+            write_log("ADMIN_CALENDAR", f"Updated class session ID {id}: '{t_class.subject_name}'")
+            return {"status": "success", "class": state["timetable_classes"][i]}
+            
+    raise HTTPException(status_code=404, detail="Class session not found.")
+
+@router.delete("/api/calendar/timetable/{id}")
+def delete_timetable_class(id: str) -> dict:
+    print(f"[DELETE /api/calendar/timetable/{id}] Deleting class session...")
+    store = LocalStateStore()
+    state = store.load_state()
+    
+    # Try Supabase first
+    from supabase import create_client
+    supabase_url = os.getenv("SUPABASE_URL", "").strip()
+    supabase_key = os.getenv("SUPABASE_KEY", "").strip()
+    if supabase_url and supabase_key:
+        try:
+            client = create_client(supabase_url, supabase_key)
+            res = client.table("timetable_classes").delete().eq("id", id).execute()
+            if res.data:
+                update_legacy_teacher_schedule(state, store)
+                return {"status": "success", "message": "Class session deleted successfully."}
+        except Exception as e:
+            print(f"[Supabase Warning] Failed to delete timetable class: {e}")
+            
+    # Fallback to local state
+    if "timetable_classes" not in state:
+        get_calendar_timetable()
+        state = store.load_state()
+        
+    for i, c in enumerate(state["timetable_classes"]):
+        if str(c.get("id")) == str(id):
+            deleted = state["timetable_classes"].pop(i)
+            store.save_state(state)
+            update_legacy_teacher_schedule(state, store)
+            write_log("ADMIN_CALENDAR", f"Deleted class session: '{deleted['subject_name']}' ID {id}")
+            return {"status": "success", "message": "Class session deleted successfully."}
+            
+    raise HTTPException(status_code=404, detail="Class session not found.")
+
+def update_legacy_teacher_schedule(state: dict, store: LocalStateStore):
+    # Keep Dr. Jane Doe's legacy timetable schedule field in sync
+    if "teachers" in state and "teacher" in state["teachers"]:
+        classes = state.get("timetable_classes", [])
+        migrated = []
+        for c in classes:
+            migrated.append({
+                "day": c.get("day_of_week") or c.get("day"),
+                "time": c.get("time_slot") or c.get("time"),
+                "class": c.get("classroom") or c.get("class"),
+                "subject": c.get("subject_name") or c.get("subject")
+            })
+        state["teachers"]["teacher"]["schedule"] = migrated
+        store.save_state(state)
+
+# Backward Compatibility Event endpoints mapping to meetings
+@router.get("/api/calendar/events")
+def get_calendar_events() -> List[dict]:
+    return get_calendar_meetings()
+
+@router.post("/api/calendar/events")
+def add_calendar_event(event: MeetingSchema) -> dict:
+    return add_calendar_meeting(event)
+
+@router.put("/api/calendar/events/{id}")
+def update_calendar_event(id: str, event: MeetingSchema) -> dict:
+    return update_calendar_meeting(id, event)
+
+@router.delete("/api/calendar/events/{id}")
+def delete_calendar_event(id: str) -> dict:
+    return delete_calendar_meeting(id)
+
+# Legacy teacher schedule POST handler mapping to timetable classes
+@router.post("/api/teacher/schedule")
+def update_teacher_schedule(payload: dict) -> dict:
+    store = LocalStateStore()
+    state = store.load_state()
+    
+    teacher_username = payload.get("teacher_username", "teacher")
+    schedule_data = payload.get("schedule", [])
+    
+    if "teachers" not in state or teacher_username not in state["teachers"]:
+        raise HTTPException(status_code=404, detail="Teacher not found.")
+        
+    state["teachers"][teacher_username]["schedule"] = schedule_data
+    
+    # Also update timetable classes table mapping
+    migrated = []
+    for idx, s in enumerate(schedule_data):
+        migrated.append({
+            "id": str(idx + 1),
+            "subject_name": s.get("subject"),
+            "time_slot": s.get("time"),
+            "classroom": s.get("class"),
+            "day_of_week": s.get("day")
+        })
+    state["timetable_classes"] = migrated
+    store.save_state(state)
+    write_log("ADMIN_CALENDAR", f"Updated class schedule for teacher '{teacher_username}'")
+    return {"status": "success", "schedule": schedule_data}
 
 @router.get("/api/logs")
 def get_logs() -> List[dict]:

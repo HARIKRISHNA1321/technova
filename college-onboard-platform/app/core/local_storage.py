@@ -35,17 +35,19 @@ class LocalStateStore:
         return {}
 
     def save_state(self, state_dict: Dict[str, Any]):
+        saved_to_supabase = False
         if self.client:
             try:
                 # Upsert main state
                 self.client.table("app_state").upsert({"id": "main_state", "state": state_dict}).execute()
-                return
+                saved_to_supabase = True
             except Exception as e:
                 print(f"[SUPABASE ERROR] Failed to save state: {e}")
 
-        # Fallback to local storage
-        with open(self.filepath, "w") as f:
-            json.dump(state_dict, f, indent=2)
+        if not saved_to_supabase:
+            # Fallback to local storage
+            with open(self.filepath, "w") as f:
+                json.dump(state_dict, f, indent=2)
 
     def update_field(self, key: str, value: Any):
         state = self.load_state()
