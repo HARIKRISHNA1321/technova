@@ -1554,8 +1554,63 @@ function formatMarkdown(text) {
     // Clean up citations: e.g. [cite: 1], [cite:1], [cite], etc.
     let cleaned = text.replace(/\[cite:?\s*\d*\]/gi, '');
     
+    // Split by newlines to parse line-by-line (e.g. lists)
+    let lines = cleaned.split('\n');
+    let inList = false;
+    let htmlOutput = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+        let line = lines[i];
+        let trimmed = line.trim();
+        
+        // Check if the line is a bullet point (starts with *, -, or •)
+        let isBullet = /^[*•-]\s+/.test(trimmed);
+        
+        if (isBullet) {
+            if (!inList) {
+                htmlOutput.push('<ul style="margin: 0.35rem 0; padding-left: 1.25rem; list-style-type: disc;">');
+                inList = true;
+            }
+            // Remove the bullet character from the beginning
+            let content = trimmed.replace(/^[*•-]\s+/, '');
+            
+            // Format inline elements inside the bullet content
+            content = formatInlineMarkdown(content);
+            htmlOutput.push('<li style="margin-bottom: 0.25rem; line-height: 1.4; color: #e6edf3;">' + content + '</li>');
+        } else {
+            if (inList) {
+                htmlOutput.push('</ul>');
+                inList = false;
+            }
+            
+            // Format inline elements
+            let content = formatInlineMarkdown(line);
+            htmlOutput.push(content);
+        }
+    }
+    
+    if (inList) {
+        htmlOutput.push('</ul>');
+    }
+    
+    // Join with <br> for non-list items
+    let finalHtml = '';
+    for (let i = 0; i < htmlOutput.length; i++) {
+        let block = htmlOutput[i];
+        if (block.startsWith('<ul') || block.startsWith('</ul') || block.startsWith('<li')) {
+            finalHtml += block;
+        } else {
+            finalHtml += block + (i < htmlOutput.length - 1 ? '<br>' : '');
+        }
+    }
+    
+    return finalHtml;
+}
+
+function formatInlineMarkdown(text) {
+    if (!text) return '';
     // Escape HTML first to prevent XSS
-    let escaped = cleaned
+    let escaped = text
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
@@ -1564,11 +1619,10 @@ function formatMarkdown(text) {
 
     // Convert double asterisks bold: **text** -> <strong>text</strong>
     escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    // Convert single asterisks bold: *text* -> <strong>text</strong>
-    escaped = escaped.replace(/\*(.*?)\*/g, '<strong>$1</strong>');
-    // Convert newlines to line breaks
-    escaped = escaped.replace(/\n/g, '<br>');
-
+    
+    // Convert single asterisks bold/italic: *text* -> <em>$1</em>
+    escaped = escaped.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    
     return escaped;
 }
 
