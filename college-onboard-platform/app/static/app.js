@@ -4,6 +4,7 @@ let currentRole = null; // 'candidate', 'hr', or 'admin'
 let systemState = null;
 let pollInterval = null;
 let editingSeating = {};
+let isUploading = false;
 
 // DOM Elements
 const loginScreen = document.getElementById('login-screen');
@@ -152,6 +153,7 @@ logoutBtn.addEventListener('click', () => {
 
 // Periodic Synchronization
 async function syncStateData() {
+    if (isUploading) return;
     try {
         const res = await fetch('/api/state');
         systemState = await res.json();
@@ -1236,6 +1238,8 @@ if (batchSubmitBtn) {
 
         if (filesToUpload.length === 0) return;
 
+        isUploading = true;
+
         // Save original state for rollback
         const originalTeacher = JSON.parse(JSON.stringify(systemState.teachers[currentUser]));
 
@@ -1281,10 +1285,12 @@ if (batchSubmitBtn) {
                 }
 
                 if (success) {
+                    isUploading = false;
                     syncStateData();
                 } else {
                     // Rollback
                     systemState.teachers[currentUser] = originalTeacher;
+                    isUploading = false;
                     updateDashboardView();
                     alert('One or more document uploads failed.');
                     updateSubmitButtonState();
@@ -1292,6 +1298,7 @@ if (batchSubmitBtn) {
             } catch (e) {
                 // Rollback
                 systemState.teachers[currentUser] = originalTeacher;
+                isUploading = false;
                 updateDashboardView();
                 alert('Server communication error during document upload.');
                 updateSubmitButtonState();
