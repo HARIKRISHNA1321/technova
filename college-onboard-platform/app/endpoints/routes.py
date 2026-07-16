@@ -452,9 +452,7 @@ def chatbot_endpoint(req: ChatRequest):
                                                 text = delta["content"]
                                                 if text:
                                                     streamed_any = True
-                                                    for char in text:
-                                                        yield char
-                                                        await asyncio.sleep(0.001)
+                                                    yield text
                                         except Exception:
                                             pass
                             if streamed_any:
@@ -503,9 +501,7 @@ def chatbot_endpoint(req: ChatRequest):
                                                 text = chunk_json["candidates"][0]["content"]["parts"][0]["text"]
                                                 if text:
                                                     streamed_any = True
-                                                    for char in text:
-                                                        yield char
-                                                        await asyncio.sleep(0.001)
+                                                    yield text
                                             except Exception:
                                                 pass
                                     if streamed_any:
@@ -534,9 +530,7 @@ def chatbot_endpoint(req: ChatRequest):
                         for chunk in response_stream:
                             if chunk.text:
                                 streamed_any = True
-                                for char in chunk.text:
-                                    yield char
-                                    await asyncio.sleep(0.001)
+                                yield chunk.text
                     except Exception as sdk_err:
                         write_log("CHATBOT_ERROR", f"Standard GenAI SDK call failed: {str(sdk_err)}. Attempting Vertex AI fallback...")
                         client = genai.Client(vertexai=True)
@@ -547,9 +541,7 @@ def chatbot_endpoint(req: ChatRequest):
                         for chunk in response_stream:
                             if chunk.text:
                                 streamed_any = True
-                                for char in chunk.text:
-                                    yield char
-                                    await asyncio.sleep(0.001)
+                                yield chunk.text
             except Exception as e:
                 write_log("CHATBOT_ERROR", f"All Gemini calls failed: {str(e)}")
             
@@ -649,9 +641,13 @@ def chatbot_endpoint(req: ChatRequest):
                     fallback_msg = "🤖 Sorry, I couldn't find any relevant rules or policies in the database for your query."
                 
                 import asyncio
-                for char in fallback_msg:
-                    yield char
-                    await asyncio.sleep(0.001)
+                words = fallback_msg.split(' ')
+                for i, word in enumerate(words):
+                    if i > 0:
+                        yield ' ' + word
+                    else:
+                        yield word
+                    await asyncio.sleep(0.03)
 
     return StreamingResponse(event_generator(), media_type="text/plain")
 

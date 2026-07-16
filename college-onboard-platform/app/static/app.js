@@ -1559,7 +1559,10 @@ async function sendFullscreenChatMessage() {
 
     appendFullscreenChatBubble('user', text);
     fullscreenChatInput.value = '';
-    fullscreenChatBody.scrollTop = fullscreenChatBody.scrollHeight;
+    fullscreenChatBody.scrollTo({
+        top: fullscreenChatBody.scrollHeight,
+        behavior: 'smooth'
+    });
 
     // Show thinking indicator bubble with custom blinking "Thinking..." text
     const thinkingBubble = appendFullscreenChatBubble('bot', '<span class="blinking-thinking">Thinking...</span>', true);
@@ -1599,7 +1602,10 @@ async function sendFullscreenChatMessage() {
             }
             accumulatedResponse += chunk;
             botBubble.innerHTML = formatMarkdown(accumulatedResponse);
-            fullscreenChatBody.scrollTop = fullscreenChatBody.scrollHeight;
+            fullscreenChatBody.scrollTo({
+                top: fullscreenChatBody.scrollHeight,
+                behavior: 'smooth'
+            });
         }
         saveChatHistory();
     } catch (e) {
@@ -1607,7 +1613,10 @@ async function sendFullscreenChatMessage() {
         if (tb) tb.remove();
         appendFullscreenChatBubble('bot', 'Error communicating with Pinecone RAG search agent.');
     }
-    fullscreenChatBody.scrollTop = fullscreenChatBody.scrollHeight;
+    fullscreenChatBody.scrollTo({
+        top: fullscreenChatBody.scrollHeight,
+        behavior: 'smooth'
+    });
 }
 
 function formatMarkdown(text) {
