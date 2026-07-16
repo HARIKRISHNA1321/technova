@@ -8,7 +8,7 @@ from app.core.privacy import DataMaskingMiddleware
 # Matches below this cosine similarity score are treated as irrelevant and dropped,
 # instead of always stuffing the top_k results into the LLM prompt regardless of
 # how well they actually match the query.
-MIN_RELEVANCE_SCORE = 0.72
+MIN_RELEVANCE_SCORE = 0.55
 
 class PineconeRAGService:
     def __init__(self):
