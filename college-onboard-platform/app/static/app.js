@@ -2554,7 +2554,7 @@ async function renderCalendar() {
         const weekdayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
         
         if (isSunday) {
-            cell.className += ' bg-neutral-800/40 text-neutral-500 pointer-events-none';
+            cell.className += ' bg-neutral-800/30 text-neutral-500 pointer-events-none';
         } else {
             cell.className += ' cursor-pointer hover:bg-neutral-800/30';
         }
@@ -2662,7 +2662,7 @@ async function renderCalendar() {
         const dayHolidays = holidaysByDate[dateStr] || [];
         dayHolidays.forEach(h => {
             const badge = document.createElement('span');
-            badge.className = 'calendar-event-badge bg-red-900/40 text-red-400 px-1.5 py-0.5 rounded text-[10px] truncate whitespace-nowrap overflow-hidden max-w-full block border border-red-500/20';
+            badge.className = 'calendar-event-badge bg-red-600/20 text-red-400 px-1.5 py-0.5 rounded text-[10px] truncate whitespace-nowrap overflow-hidden max-w-full block border border-red-500/30';
             badge.innerText = `🌴 ${h.localName || h.name}`;
             badge.title = h.name;
             eventsContainer.appendChild(badge);
@@ -2933,7 +2933,7 @@ async function renderAdminCalendar() {
         const isSunday = dateObj.getDay() === 0;
         
         if (isSunday) {
-            cell.className += ' bg-neutral-800/40 text-neutral-500 pointer-events-none';
+            cell.className += ' bg-neutral-800/30 text-neutral-500 pointer-events-none';
         }
 
         // Highlight current day if active
@@ -2977,7 +2977,7 @@ async function renderAdminCalendar() {
         const dayHolidays = holidaysByDate[dateStr] || [];
         dayHolidays.forEach(h => {
             const badge = document.createElement('span');
-            badge.className = 'calendar-event-badge bg-red-900/40 text-red-400 px-1.5 py-0.5 rounded text-[10px] truncate whitespace-nowrap overflow-hidden max-w-full block border border-red-500/20';
+            badge.className = 'calendar-event-badge bg-red-600/20 text-red-400 px-1.5 py-0.5 rounded text-[10px] truncate whitespace-nowrap overflow-hidden max-w-full block border border-red-500/30';
             badge.innerText = `🌴 ${h.localName || h.name}`;
             badge.title = h.name;
             eventsContainer.appendChild(badge);
