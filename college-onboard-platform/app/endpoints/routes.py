@@ -424,16 +424,81 @@ def chatbot_endpoint(req: ChatRequest):
                 write_log("CHATBOT_ERROR", f"All Gemini calls failed: {str(e)}")
             
             if not streamed_any:
+                import re
                 cleaned_rules = rules_context
                 cleaned_rules = re.sub(r'^\[Pinecone Index:[^\]]+\] RETRIEVED REAL-TIME RULES:\s*', '', cleaned_rules, flags=re.IGNORECASE)
                 cleaned_rules = re.sub(r'^\[Pinecone Search \([^)]+\)\] RETRIEVED RULES CONTEXT:\s*', '', cleaned_rules, flags=re.IGNORECASE)
                 cleaned_rules = re.sub(r'\[cite:?\s*\d*\]', '', cleaned_rules, flags=re.IGNORECASE)
-                cleaned_rules = re.sub(r' +', ' ', cleaned_rules)
                 
-                if cleaned_rules.strip():
+                replacements = {
+                    "Casual/SickLeave": "Casual / Sick Leave",
+                    "PaternityLeave": "Paternity Leave",
+                    "Maternity/Adoption": "Maternity / Adoption",
+                    "BereavementLeave": "Bereavement Leave",
+                    "PrivilegeLeave": "Privilege Leave",
+                    "RelocationTransfer": "Relocation & Transfer",
+                    "ofsick": "of sick",
+                    "byyear-end": "by year-end",
+                    "areexhausted": "are exhausted",
+                    "accrualand": "accrual and",
+                    "familymember": "family member",
+                    "continuousleave": "continuous leave",
+                    "orvacation": "or vacation",
+                    "ofrelocation": "of relocation",
+                    "Officialholidays": "Official holidays",
+                    "Policy.Line": "Policy. Line",
+                    "Policy.Entitlement": "Policy. Entitlement",
+                    "Dept Head": "Department Head",
+                    "member.Entitlement": "member. Entitlement",
+                }
+                
+                for old, new in replacements.items():
+                    cleaned_rules = cleaned_rules.replace(old, new)
+                    
+                lines = cleaned_rules.split('\n')
+                formatted_sections = []
+                
+                for line in lines:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    if line.startswith("- "):
+                        line = line[2:].strip()
+                    
+                    sentences = re.split(r'\.\s+', line)
+                    for s in sentences:
+                        s_clean = s.strip()
+                        if not s_clean:
+                            continue
+                        if not s_clean.endswith('.'):
+                            s_clean += '.'
+                            
+                        # Keywords to format as header
+                        headers = [
+                            "Casual / Sick Leave", "Paternity Leave", "Maternity / Adoption", 
+                            "Bereavement Leave", "Privilege Leave", "Relocation & Transfer", 
+                            "General Leave Policies", "Loss of Pay", "Leave Classification", 
+                            "Public Holidays", "Leave Application", "Leave Donation", 
+                            "Accumulated Earned"
+                        ]
+                        
+                        if any(keyword.lower() in s_clean.lower() for keyword in headers):
+                            formatted_sections.append(f"\n📋 **{s_clean}**")
+                        elif "entitlement:" in s_clean.lower():
+                            val = re.sub(r'^entitlement\s*:\s*', '', s_clean, flags=re.IGNORECASE)
+                            formatted_sections.append(f"  * **Entitlement:** {val}")
+                        elif any(auth.lower() in s_clean.lower() for auth in ["Line Manager", "Department Head", "HR"]):
+                            formatted_sections.append(f"  * **Approvals:** {s_clean}")
+                        else:
+                            formatted_sections.append(f"  * {s_clean}")
+                            
+                result_text = "\n".join(formatted_sections)
+                result_text = re.sub(r'\n+', '\n\n', result_text).strip()
+                
+                if result_text:
                     fallback_msg = (
                         "🤖 **Here is what I found in the PESU policy database:**\n\n"
-                        f"{cleaned_rules.strip()}"
+                        f"{result_text}"
                     )
                 else:
                     fallback_msg = "🤖 Sorry, I couldn't find any relevant rules or policies in the database for your query."
