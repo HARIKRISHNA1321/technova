@@ -325,8 +325,9 @@ def chatbot_endpoint(req: ChatRequest):
             
             prompt = (
                 f"You are a helpful PESU AI. Use the following Pinecone RAG context to answer the user's query.\n"
-                f"Make sure to use relevant emojis where appropriate in your response to make it engaging and friendly.\n"
-                f"Ensure the response is beautifully formatted, well-aligned, and easily readable. Include clear section headers, double newlines between paragraphs, bold text, italics, and clean bullet lists (* or -) where appropriate to make it visually structured and easy to digest.\n"
+                f"Your answer must be direct, concise, and specifically address only what the user is asking. Do not summarize or list unrelated parts of the context. For specific questions (e.g., 'who is the chairperson of cse dpt?'), provide a direct, concise answer (e.g., 'Mrs Shylaja SS is the chairperson of the PESU CSE department and her contact info is example@gmail.com') without unnecessary lists, headers, or details.\n"
+                f"When formatting larger or multi-part responses, make sure they are well-aligned and readable using proper spacing, newlines, bold text, or clean bullet points where appropriate.\n"
+                f"Make sure to use relevant emojis where appropriate to make it engaging and friendly.\n"
                 f"If you answer using the retrieved context guidelines, always append '[Source: Pinecone Database]' to make it clear that the response refers to retrieved records.\n"
                 f"If the context does not contain enough info to answer the query, reply to the best of your knowledge, specify that it is general info, and do not append the citation.\n\n"
                 f"Context:\n{rules_context}\n\n"
@@ -507,6 +508,11 @@ def chatbot_endpoint(req: ChatRequest):
                 for old, new in replacements.items():
                     cleaned_rules = cleaned_rules.replace(old, new)
                     
+                # Extract search keywords from user query, removing common stop words
+                stop_words = {"who", "is", "the", "of", "a", "an", "hey", "can", "you", "tell", "me", "what", "about", "for", "please", "help", "with", "query", "question", "info", "information", "detail", "details"}
+                query_words = [w.lower().strip(",.?!()\"'") for w in clean_input.split()]
+                keywords = [w for w in query_words if len(w) > 2 and w not in stop_words]
+
                 lines = cleaned_rules.split('\n')
                 formatted_sections = []
                 
@@ -524,6 +530,16 @@ def chatbot_endpoint(req: ChatRequest):
                             continue
                         if not s_clean.endswith('.'):
                             s_clean += '.'
+                            
+                        # If query keywords exist, filter sentences to only those containing at least one keyword
+                        if keywords:
+                            has_match = False
+                            for kw in keywords:
+                                if kw in s_clean.lower():
+                                    has_match = True
+                                    break
+                            if not has_match:
+                                continue
                             
                         # Keywords to format as header
                         headers = [
