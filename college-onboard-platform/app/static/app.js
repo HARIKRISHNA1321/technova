@@ -1611,7 +1611,10 @@ async function sendFullscreenChatMessage() {
                         top: fullscreenChatBody.scrollHeight,
                         behavior: 'smooth'
                     });
-                    setTimeout(nextWord, 45); // 45ms smooth delay per word/chunk
+                    
+                    // Dynamically adjust delay: speed up to print faster if queue backlog increases
+                    const currentDelay = Math.max(10, 45 - wordQueue.length * 3);
+                    setTimeout(nextWord, currentDelay);
                 } else {
                     isRendering = false;
                 }

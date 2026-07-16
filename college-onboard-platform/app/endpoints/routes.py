@@ -343,7 +343,7 @@ def refine_query_with_gemini(user_input: str) -> str:
     return user_input
 
 @router.post("/api/chat")
-def chatbot_endpoint(req: ChatRequest):
+async def chatbot_endpoint(req: ChatRequest):
     clean_input = DataMaskingMiddleware.redact_pii(req.message)
     write_log("CHATBOT_AGENT", f"Received message: '{clean_input}'")
     
@@ -407,7 +407,7 @@ def chatbot_endpoint(req: ChatRequest):
                 f"Check the context carefully first. If and only if the requested information is not present in the context, you may provide a generalized answer based on your general knowledge. If the answer is found in the context, restrict your response strictly to the context information and do not add generalized info.\n"
                 f"Your answer must be direct, concise, and specifically address only what the user is asking. Do not summarize or list unrelated parts of the context. For specific questions (e.g., 'who is the chairperson of cse dpt?'), provide a direct, concise answer (e.g., 'Mrs Shylaja SS is the chairperson of the PESU CSE department and her contact info is example@gmail.com') without unnecessary lists, headers, or details.\n"
                 f"When formatting larger or multi-part responses, make sure they are well-aligned and readable using proper spacing, newlines, bold text, or clean bullet points where appropriate.\n"
-                f"Make sure to use relevant emojis where appropriate to make it engaging and friendly.\n\n"
+                                f"Make sure to use relevant emojis where appropriate to make it engaging and friendly.\n\n"
                 f"Context:\n{rules_context}\n\n"
                 f"User Query: {clean_input}\n\n"
                 f"Response:"
@@ -416,7 +416,7 @@ def chatbot_endpoint(req: ChatRequest):
             streamed_any = False
             try:
                 import asyncio
-                import requests
+                import httpx
                 from dotenv import load_dotenv
                 load_dotenv(override=True)
                 groq_key = os.getenv("GROQ_API_KEY", "").strip()
@@ -437,33 +437,31 @@ def chatbot_endpoint(req: ChatRequest):
                         "stream": True
                     }
                     try:
-                        response = requests.post(url, headers=headers, json=data, stream=True, timeout=30.0)
-                        if response.status_code == 200:
-                            for line in response.iter_lines():
-                                if line:
-                                    line_str = line.decode('utf-8').strip()
-                                    if line_str.startswith("data: "):
-                                        data_content = line_str[6:].strip()
-                                        if data_content == "[DONE]":
-                                            break
-                                        try:
-                                            chunk_json = json.loads(data_content)
-                                            delta = chunk_json["choices"][0]["delta"]
-                                            if "content" in delta:
-                                                text = delta["content"]
-                                                if text:
-                                                    streamed_any = True
-                                                    yield text
-                                        except Exception:
-                                            pass
-                            if streamed_any:
-                                write_log("CHATBOT_DEBUG", "Groq stream finished successfully.")
-                        else:
-                            try:
-                                err_content = response.text
-                            except Exception:
-                                err_content = "could not read body"
-                            write_log("CHATBOT_ERROR", f"Groq stream returned non-200: {response.status_code} - {err_content}")
+                        async with httpx.AsyncClient(timeout=30.0) as client:
+                            async with client.stream("POST", url, headers=headers, json=data) as response:
+                                if response.status_code == 200:
+                                    async for line in response.aiter_lines():
+                                        if line:
+                                            line_str = line.strip()
+                                            if line_str.startswith("data: "):
+                                                data_content = line_str[6:].strip()
+                                                if data_content == "[DONE]":
+                                                    break
+                                                try:
+                                                    chunk_json = json.loads(data_content)
+                                                    delta = chunk_json["choices"][0]["delta"]
+                                                    if "content" in delta:
+                                                        text = delta["content"]
+                                                        if text:
+                                                            streamed_any = True
+                                                            yield text
+                                                except Exception:
+                                                    pass
+                                    if streamed_any:
+                                        write_log("CHATBOT_DEBUG", "Groq stream finished successfully.")
+                                else:
+                                    err_content = await response.aread()
+                                    write_log("CHATBOT_ERROR", f"Groq stream returned non-200: {response.status_code} - {err_content.decode('utf-8', errors='ignore')}")
                     except Exception as groq_err:
                         write_log("CHATBOT_ERROR", f"Groq API call failed: {str(groq_err)}")
 
@@ -482,37 +480,35 @@ def chatbot_endpoint(req: ChatRequest):
                                     "contents": [{"parts": [{"text": prompt}]}]
                                 }
                                 write_log("CHATBOT_DEBUG", f"Attempting REST stream with model: {model_name}")
-                                response = requests.post(url, headers=headers, json=data, stream=True, timeout=30.0)
-                                write_log("CHATBOT_DEBUG", f"REST stream response status for {model_name}: {response.status_code}")
-                                if response.status_code == 200:
-                                    for line in response.iter_lines():
-                                        if line:
-                                            line_str = line.decode('utf-8').strip()
-                                            if line_str.startswith('['):
-                                                line_str = line_str[1:]
-                                            if line_str.startswith(','):
-                                                line_str = line_str[1:]
-                                            if line_str.endswith(']'):
-                                                line_str = line_str[:-1]
-                                            line_str = line_str.strip()
-                                            if not line_str:
-                                                continue
-                                            try:
-                                                chunk_json = json.loads(line_str)
-                                                text = chunk_json["candidates"][0]["content"]["parts"][0]["text"]
-                                                if text:
-                                                    streamed_any = True
-                                                    yield text
-                                            except Exception:
-                                                pass
-                                    if streamed_any:
-                                        break
-                                else:
-                                    try:
-                                        err_content = response.text
-                                    except Exception:
-                                        err_content = "could not read body"
-                                    write_log("CHATBOT_ERROR", f"REST stream {model_name} returned non-200: {response.status_code} - {err_content}")
+                                async with httpx.AsyncClient(timeout=30.0) as client:
+                                    async with client.stream("POST", url, headers=headers, json=data) as response:
+                                        write_log("CHATBOT_DEBUG", f"REST stream response status for {model_name}: {response.status_code}")
+                                        if response.status_code == 200:
+                                            async for line in response.aiter_lines():
+                                                if line:
+                                                    line_str = line.strip()
+                                                    if line_str.startswith('['):
+                                                        line_str = line_str[1:]
+                                                    if line_str.startswith(','):
+                                                        line_str = line_str[1:]
+                                                    if line_str.endswith(']'):
+                                                        line_str = line_str[:-1]
+                                                    line_str = line_str.strip()
+                                                    if not line_str:
+                                                        continue
+                                                    try:
+                                                        chunk_json = json.loads(line_str)
+                                                        text = chunk_json["candidates"][0]["content"]["parts"][0]["text"]
+                                                        if text:
+                                                            streamed_any = True
+                                                            yield text
+                                                    except Exception:
+                                                        pass
+                                            if streamed_any:
+                                                break
+                                        else:
+                                            err_content = await response.aread()
+                                            write_log("CHATBOT_ERROR", f"REST stream {model_name} returned non-200: {response.status_code} - {err_content.decode('utf-8', errors='ignore')}")
                             except Exception as rest_err:
                                 write_log("CHATBOT_ERROR", f"REST stream {model_name} request failed: {str(rest_err)}.")
                             
@@ -524,27 +520,27 @@ def chatbot_endpoint(req: ChatRequest):
                             client = genai.Client(api_key=api_key)
                         else:
                             client = genai.Client()
-                        response_stream = client.models.generate_content_stream(
+                        response_stream = await client.aio.models.generate_content_stream(
                             model='gemini-2.5-flash',
                             contents=prompt
                         )
-                        for chunk in response_stream:
+                        async for chunk in response_stream:
                             if chunk.text:
                                 streamed_any = True
                                 yield chunk.text
                     except Exception as sdk_err:
                         write_log("CHATBOT_ERROR", f"Standard GenAI SDK call failed: {str(sdk_err)}. Attempting Vertex AI fallback...")
                         client = genai.Client(vertexai=True)
-                        response_stream = client.models.generate_content_stream(
+                        response_stream = await client.aio.models.generate_content_stream(
                             model='gemini-2.5-flash',
                             contents=prompt
                         )
-                        for chunk in response_stream:
+                        async for chunk in response_stream:
                             if chunk.text:
                                 streamed_any = True
                                 yield chunk.text
             except Exception as e:
-                write_log("CHATBOT_ERROR", f"All Gemini calls failed: {str(e)}")
+                write_log("CHATBOT_ERROR", f"All Gemini calls failed: {str(e)}")ATBOT_ERROR", f"All Gemini calls failed: {str(e)}")
             
             if not streamed_any:
                 import re
