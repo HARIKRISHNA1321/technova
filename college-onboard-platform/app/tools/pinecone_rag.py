@@ -42,7 +42,7 @@ class PineconeRAGService:
                 index_name = "working"
                 idx = pc.Index(index_name)
                 
-                query_res = idx.query(vector=vector, top_k=3, include_metadata=True)
+                query_res = idx.query(vector=vector, top_k=6, include_metadata=True)
                 
                 # 3. Parse and format retrieved text chunks, dropping low-relevance matches
                 context_pieces = []
