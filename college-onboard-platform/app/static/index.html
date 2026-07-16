@@ -95,7 +95,8 @@
                         <!-- HR Menu -->
                         <div id="hr-menu" class="menu-group hidden">
                             <button class="nav-tab active" data-tab="hr-teachers-list">Manage Teachers</button>
-                            <button class="nav-tab" data-tab="hr-verification" id="hr-verification-tab">Verification [0]</button>
+                            <button class="nav-tab" data-tab="hr-verification" id="hr-verification-tab">Verification
+                                [0]</button>
                             <button class="nav-tab" data-tab="hr-add-teacher">Add New Teacher</button>
                         </div>
 
@@ -130,9 +131,12 @@
                             <div class="profile-detail-item"><strong>Employee ID:</strong> <span
                                     id="prof-empid">-</span></div>
                         </div>
-                        <div id="onboarding-status-container" style="margin-top: 20px; padding: 15px; border-radius: 8px; background: rgba(255,255,255,0.02); display: flex; flex-direction: column; gap: 6px; border: 1px solid rgba(255,255,255,0.1);">
-                            <h4 style="margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--text-secondary);">Onboarding Status</h4>
-                            <div id="onboarding-status-val" style="font-size: 0.9rem; color: #fff; font-weight: 500;">-</div>
+                        <div id="onboarding-status-container"
+                            style="margin-top: 20px; padding: 15px; border-radius: 8px; background: rgba(255,255,255,0.02); display: flex; flex-direction: column; gap: 6px; border: 1px solid rgba(255,255,255,0.1);">
+                            <h4 style="margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--text-secondary);">
+                                Onboarding Status</h4>
+                            <div id="onboarding-status-val" style="font-size: 0.9rem; color: #fff; font-weight: 500;">-
+                            </div>
                         </div>
                     </div>
 
@@ -219,10 +223,10 @@
                     <div id="tab-candidate-documents" class="tab-pane hidden">
                         <h2>Document Submission Dashboard</h2>
                         <p class="section-desc">Submit required verification documents in PDF format</p>
-                        
+
                         <div class="document-list-wrapper mt-3">
                             <h4>Required Verification Files:</h4>
-                            
+
                             <div class="upload-boxes-container">
                                 <div class="upload-item-box" id="card-aadhaar">
                                     <div class="upload-item-details">
@@ -240,14 +244,15 @@
                                         <input type="file" id="file-aadhaar" accept=".pdf" style="display: none;">
                                     </div>
                                 </div>
-                                
+
                                 <div class="upload-item-box" id="card-appointment">
                                     <div class="upload-item-details">
                                         <div class="upload-item-title-row">
                                             <span class="upload-item-emoji">📄</span>
                                             <span class="upload-item-title-text">Appointment Letter</span>
                                         </div>
-                                        <div class="upload-item-status-text" id="status-appointment">No file selected</div>
+                                        <div class="upload-item-status-text" id="status-appointment">No file selected
+                                        </div>
                                     </div>
                                     <div class="upload-item-right">
                                         <button class="upload-btn-neat">
@@ -257,7 +262,7 @@
                                         <input type="file" id="file-appointment" accept=".pdf" style="display: none;">
                                     </div>
                                 </div>
-                                
+
                                 <div class="upload-item-box" id="card-tet">
                                     <div class="upload-item-details">
                                         <div class="upload-item-title-row">
@@ -275,9 +280,10 @@
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <div style="display: flex; justify-content: center; margin-top: 2rem;">
-                                <button id="batch-submit-btn" class="btn btn-primary" style="width: 220px;" disabled>Submit</button>
+                                <button id="batch-submit-btn" class="btn btn-primary" style="width: 220px;"
+                                    disabled>Submit</button>
                             </div>
                         </div>
                     </div>
@@ -295,61 +301,91 @@
                     <div id="tab-candidate-settings" class="tab-pane hidden">
                         <h2>Settings</h2>
                         <p class="section-desc">Manage your account credentials and security preferences</p>
-                        
+
                         <!-- Settings List View -->
                         <div id="settings-main-list">
-                            <div class="settings-list" style="max-width: 500px; display: flex; flex-direction: column; margin-top: 20px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; overflow: hidden;">
-                                <div class="settings-item" onclick="showSettingsView('change-password')" style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); cursor: pointer; transition: background 0.2s ease, transform 0.1s ease; user-select: none;">
-                                    <div class="settings-item-left" style="display: flex; align-items: center; gap: 12px; font-size: 1rem; font-weight: 500; color: #c9d1d9;">
-                                        <span class="settings-item-icon" style="font-size: 1.2rem; color: #8b949e;">🔒</span>
+                            <div class="settings-list"
+                                style="max-width: 500px; display: flex; flex-direction: column; margin-top: 20px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; overflow: hidden;">
+                                <div class="settings-item" onclick="showSettingsView('change-password')"
+                                    style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); cursor: pointer; transition: background 0.2s ease, transform 0.1s ease; user-select: none;">
+                                    <div class="settings-item-left"
+                                        style="display: flex; align-items: center; gap: 12px; font-size: 1rem; font-weight: 500; color: #c9d1d9;">
+                                        <span class="settings-item-icon"
+                                            style="font-size: 1.2rem; color: #8b949e;">🔒</span>
                                         <span>Change Password</span>
                                     </div>
-                                    <span class="settings-item-chevron" style="color: #8b949e; font-size: 1.1rem; font-weight: bold;">&gt;</span>
+                                    <span class="settings-item-chevron"
+                                        style="color: #8b949e; font-size: 1.1rem; font-weight: bold;">&gt;</span>
                                 </div>
-                                <div class="settings-item" onclick="showSettingsView('update-email')" style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: none; cursor: pointer; transition: background 0.2s ease, transform 0.1s ease; user-select: none;">
-                                    <div class="settings-item-left" style="display: flex; align-items: center; gap: 12px; font-size: 1rem; font-weight: 500; color: #c9d1d9;">
-                                        <span class="settings-item-icon" style="font-size: 1.2rem; color: #8b949e;">✉️</span>
+                                <div class="settings-item" onclick="showSettingsView('update-email')"
+                                    style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: none; cursor: pointer; transition: background 0.2s ease, transform 0.1s ease; user-select: none;">
+                                    <div class="settings-item-left"
+                                        style="display: flex; align-items: center; gap: 12px; font-size: 1rem; font-weight: 500; color: #c9d1d9;">
+                                        <span class="settings-item-icon"
+                                            style="font-size: 1.2rem; color: #8b949e;">✉️</span>
                                         <span>Update Email ID</span>
                                     </div>
-                                    <span class="settings-item-chevron" style="color: #8b949e; font-size: 1.1rem; font-weight: bold;">&gt;</span>
+                                    <span class="settings-item-chevron"
+                                        style="color: #8b949e; font-size: 1.1rem; font-weight: bold;">&gt;</span>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Change Password Form View -->
                         <div id="settings-change-password-view" class="hidden">
-                            <button class="settings-back-btn" onclick="showSettingsView('main')">← Back to Settings</button>
-                            <div class="settings-card" style="max-width: 450px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 25px;">
-                                <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 1.2rem; color: #58a6ff;">Change Password</h3>
+                            <button class="settings-back-btn" onclick="showSettingsView('main')">← Back to
+                                Settings</button>
+                            <div class="settings-card"
+                                style="max-width: 450px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 25px;">
+                                <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 1.2rem; color: #58a6ff;">
+                                    Change Password</h3>
                                 <form id="change-password-form">
                                     <div class="form-group" style="margin-bottom: 15px;">
-                                        <label for="settings-current-password" style="display: block; margin-bottom: 6px; font-size: 0.9rem; color: #8b949e;">Current Password</label>
-                                        <input type="password" id="settings-current-password" required style="width: 100%; padding: 10px 14px; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #fff; box-sizing: border-box;">
+                                        <label for="settings-current-password"
+                                            style="display: block; margin-bottom: 6px; font-size: 0.9rem; color: #8b949e;">Current
+                                            Password</label>
+                                        <input type="password" id="settings-current-password" required
+                                            style="width: 100%; padding: 10px 14px; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #fff; box-sizing: border-box;">
                                     </div>
                                     <div class="form-group" style="margin-bottom: 15px;">
-                                        <label for="settings-new-password" style="display: block; margin-bottom: 6px; font-size: 0.9rem; color: #8b949e;">New Password</label>
-                                        <input type="password" id="settings-new-password" required style="width: 100%; padding: 10px 14px; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #fff; box-sizing: border-box;">
+                                        <label for="settings-new-password"
+                                            style="display: block; margin-bottom: 6px; font-size: 0.9rem; color: #8b949e;">New
+                                            Password</label>
+                                        <input type="password" id="settings-new-password" required
+                                            style="width: 100%; padding: 10px 14px; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #fff; box-sizing: border-box;">
                                     </div>
                                     <div class="form-group" style="margin-bottom: 20px;">
-                                        <label for="settings-confirm-password" style="display: block; margin-bottom: 6px; font-size: 0.9rem; color: #8b949e;">Confirm New Password</label>
-                                        <input type="password" id="settings-confirm-password" required style="width: 100%; padding: 10px 14px; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #fff; box-sizing: border-box;">
+                                        <label for="settings-confirm-password"
+                                            style="display: block; margin-bottom: 6px; font-size: 0.9rem; color: #8b949e;">Confirm
+                                            New Password</label>
+                                        <input type="password" id="settings-confirm-password" required
+                                            style="width: 100%; padding: 10px 14px; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #fff; box-sizing: border-box;">
                                     </div>
-                                    <button type="submit" class="btn btn-primary" style="width: 100%; border-radius: 8px; padding: 12px;">Update Password</button>
+                                    <button type="submit" class="btn btn-primary"
+                                        style="width: 100%; border-radius: 8px; padding: 12px;">Update Password</button>
                                 </form>
                             </div>
                         </div>
 
                         <!-- Update Email Form View -->
                         <div id="settings-update-email-view" class="hidden">
-                            <button class="settings-back-btn" onclick="showSettingsView('main')">← Back to Settings</button>
-                            <div class="settings-card" style="max-width: 450px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 25px;">
-                                <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 1.2rem; color: #58a6ff;">Update Email ID</h3>
+                            <button class="settings-back-btn" onclick="showSettingsView('main')">← Back to
+                                Settings</button>
+                            <div class="settings-card"
+                                style="max-width: 450px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 25px;">
+                                <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 1.2rem; color: #58a6ff;">
+                                    Update Email ID</h3>
                                 <form id="update-email-form">
                                     <div class="form-group" style="margin-bottom: 20px;">
-                                        <label for="settings-email-prefix" style="display: block; margin-bottom: 6px; font-size: 0.9rem; color: #8b949e;">Email Address Prefix</label>
-                                        <input type="text" id="settings-email-prefix" required placeholder="example@pes.edu" style="width: 100%; padding: 10px 14px; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #fff; box-sizing: border-box; outline: none;">
+                                        <label for="settings-email-prefix"
+                                            style="display: block; margin-bottom: 6px; font-size: 0.9rem; color: #8b949e;">Email
+                                            Address</label>
+                                        <input type="text" id="settings-email-prefix" required
+                                            placeholder="example@pes.edu"
+                                            style="width: 100%; padding: 10px 14px; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #fff; box-sizing: border-box; outline: none;">
                                     </div>
-                                    <button type="submit" class="btn btn-primary" style="width: 100%; border-radius: 8px; padding: 12px;">Update Email</button>
+                                    <button type="submit" class="btn btn-primary"
+                                        style="width: 100%; border-radius: 8px; padding: 12px;">Update Email</button>
                                 </form>
                             </div>
                         </div>
@@ -361,7 +397,9 @@
                         <h2>Manage Teachers</h2>
                         <p class="section-desc">Click on any profile to edit and manage teacher records</p>
                         <div class="form-group mt-3" style="max-width: 400px; margin-bottom: 15px;">
-                            <input type="text" id="hr-search-teacher" class="form-control" placeholder="Search by Employee ID..." style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 10px 14px; border-radius: 8px; width: 100%;">
+                            <input type="text" id="hr-search-teacher" class="form-control"
+                                placeholder="Search by Employee ID..."
+                                style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 10px 14px; border-radius: 8px; width: 100%;">
                         </div>
                         <div class="teachers-list-container mt-3" id="hr-teachers-list-view">
                             <!-- Dynamic Profiles -->
@@ -385,11 +423,23 @@
                                 </div>
                                 <div class="form-group">
                                     <label for="edit-dept">Department</label>
-                                    <input type="text" id="edit-dept" required>
+                                    <select id="edit-dept" required>
+                                        <option value="" disabled selected>Select Department</option>
+                                        <option value="Computer Science & Engineering">Computer Science & Engineering</option>
+                                        <option value="Artificial Intelligence & Machine Learning">Artificial Intelligence & Machine Learning</option>
+                                        <option value="Mechanical Engineering">Mechanical Engineering</option>
+                                        <option value="Electronics & Communication Engineering">Electronics & Communication Engineering</option>
+                                        <option value="Electrical & Electronics Engineering">Electrical & Electronics Engineering</option>
+                                    </select>
                                 </div>
                                 <div class="form-group">
                                     <label for="edit-desig">Designation</label>
-                                    <input type="text" id="edit-desig" required>
+                                    <select id="edit-desig" required>
+                                        <option value="" disabled selected>Select Designation</option>
+                                        <option value="Assistant Professor">Assistant Professor</option>
+                                        <option value="Professor">Professor</option>
+                                        <option value="Other Staff">Other Staff</option>
+                                    </select>
                                 </div>
                                 <div class="form-group">
                                     <label for="edit-empid">Employee ID</label>
@@ -407,7 +457,8 @@
                     <!-- HR Verification View -->
                     <div id="tab-hr-verification" class="tab-pane hidden">
                         <h2>Compliance Verification</h2>
-                        <p class="section-desc">Review submitted Aadhaar, Appointment, and TET documents across all faculty members</p>
+                        <p class="section-desc">Review submitted Aadhaar, Appointment, and TET documents across all
+                            faculty members</p>
                         <div id="hr-verification-list" class="mt-3">
                             <!-- Dynamic Content -->
                         </div>
@@ -428,11 +479,23 @@
                             </div>
                             <div class="form-group">
                                 <label for="add-dept">Department</label>
-                                <input type="text" id="add-dept" placeholder="Computer Science & Engineering" required>
+                                <select id="add-dept" required>
+                                    <option value="" disabled selected>Select Department</option>
+                                    <option value="Computer Science & Engineering">Computer Science & Engineering</option>
+                                    <option value="Artificial Intelligence & Machine Learning">Artificial Intelligence & Machine Learning</option>
+                                    <option value="Mechanical Engineering">Mechanical Engineering</option>
+                                    <option value="Electronics & Communication Engineering">Electronics & Communication Engineering</option>
+                                    <option value="Electrical & Electronics Engineering">Electrical & Electronics Engineering</option>
+                                </select>
                             </div>
                             <div class="form-group">
                                 <label for="add-desig">Designation</label>
-                                <input type="text" id="add-desig" placeholder="Assistant Professor" required>
+                                <select id="add-desig" required>
+                                    <option value="" disabled selected>Select Designation</option>
+                                    <option value="Assistant Professor">Assistant Professor</option>
+                                    <option value="Professor">Professor</option>
+                                    <option value="Other Staff">Other Staff</option>
+                                </select>
                             </div>
                             <div class="form-group">
                                 <label for="add-empid">Employee ID</label>
@@ -476,7 +539,9 @@
                         <h2>All Teachers Overview</h2>
                         <p class="section-desc">Complete register of onboarded faculty members</p>
                         <div class="form-group mt-3" style="max-width: 400px; margin-bottom: 15px;">
-                            <input type="text" id="admin-search-teacher" class="form-control" placeholder="Search by Employee ID..." style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 10px 14px; border-radius: 8px; width: 100%;">
+                            <input type="text" id="admin-search-teacher" class="form-control"
+                                placeholder="Search by Employee ID..."
+                                style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 10px 14px; border-radius: 8px; width: 100%;">
                         </div>
                         <div class="table-wrapper mt-3">
                             <table class="record-table">
@@ -513,22 +578,31 @@
     </div>
 
     <!-- Seating Allotment Modal -->
-    <div id="admin-seating-modal" class="modal hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; display: flex; align-items: center; justify-content: center;">
-        <div class="modal-content" style="background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 2rem; width: 90%; max-width: 800px; height: 600px; position: relative; box-shadow: 0 8px 32px rgba(0,0,0,0.5); display: flex; flex-direction: column;">
-            <button id="close-seating-modal-btn" class="close-btn" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer;">&times;</button>
+    <div id="admin-seating-modal" class="modal hidden"
+        style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; display: flex; align-items: center; justify-content: center;">
+        <div class="modal-content"
+            style="background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 2rem; width: 90%; max-width: 800px; height: 600px; position: relative; box-shadow: 0 8px 32px rgba(0,0,0,0.5); display: flex; flex-direction: column;">
+            <button id="close-seating-modal-btn" class="close-btn"
+                style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer;">&times;</button>
             <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 0.25rem;">Allocate Seating Space</h2>
-            <p class="section-desc" id="seating-modal-teacher-subtitle" style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem; margin-bottom: 1.5rem;">Select a room and desk for the teacher</p>
-            
+            <p class="section-desc" id="seating-modal-teacher-subtitle"
+                style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem; margin-bottom: 1.5rem;">
+                Select a room and desk for the teacher</p>
+
             <div style="display: flex; flex: 1; min-height: 0; gap: 20px;">
                 <!-- Left panel: Rooms -->
-                <div id="seating-modal-rooms" style="width: 180px; border-right: 1px solid #30363d; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 15px;">
+                <div id="seating-modal-rooms"
+                    style="width: 180px; border-right: 1px solid #30363d; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 15px;">
                     <!-- Dynamic Rooms List -->
                 </div>
-                
+
                 <!-- Right panel: Seats -->
-                <div id="seating-modal-seats-container" style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
-                    <h4 id="seating-modal-selected-room-title" style="margin-bottom: 1rem; color: #fff; font-size: 1.1rem;">Select Room...</h4>
-                    <div id="seating-modal-seats-grid" style="flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; align-content: start;">
+                <div id="seating-modal-seats-container"
+                    style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+                    <h4 id="seating-modal-selected-room-title"
+                        style="margin-bottom: 1rem; color: #fff; font-size: 1.1rem;">Select Room...</h4>
+                    <div id="seating-modal-seats-grid"
+                        style="flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; align-content: start;">
                         <!-- Dynamic Seats Grid -->
                     </div>
                 </div>
@@ -537,21 +611,31 @@
     </div>
 
     <!-- Edit Announcement Modal -->
-    <div id="admin-edit-announcement-modal" class="modal hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; display: flex; align-items: center; justify-content: center;">
-        <div class="modal-content" style="background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 2rem; width: 100%; max-width: 500px; position: relative; box-shadow: 0 8px 32px rgba(0,0,0,0.5);">
-            <button id="close-ann-modal-btn" class="close-btn" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer;">&times;</button>
+    <div id="admin-edit-announcement-modal" class="modal hidden"
+        style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; display: flex; align-items: center; justify-content: center;">
+        <div class="modal-content"
+            style="background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 2rem; width: 100%; max-width: 500px; position: relative; box-shadow: 0 8px 32px rgba(0,0,0,0.5);">
+            <button id="close-ann-modal-btn" class="close-btn"
+                style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer;">&times;</button>
             <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 0.25rem;">Edit Announcement</h2>
-            <p class="section-desc" style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem; margin-bottom: 1.5rem;">Update the announcement title and details</p>
-            
+            <p class="section-desc"
+                style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem; margin-bottom: 1.5rem;">
+                Update the announcement title and details</p>
+
             <form id="admin-edit-announcement-form">
                 <input type="hidden" id="edit-ann-id">
                 <div class="form-group" style="margin-bottom: 1.25rem;">
-                    <label for="edit-ann-title" style="display: block; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; color: var(--text-muted);">Title</label>
-                    <input type="text" id="edit-ann-title" required style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 10px 14px; border-radius: 8px; font-family: var(--font-main);">
+                    <label for="edit-ann-title"
+                        style="display: block; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; color: var(--text-muted);">Title</label>
+                    <input type="text" id="edit-ann-title" required
+                        style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 10px 14px; border-radius: 8px; font-family: var(--font-main);">
                 </div>
                 <div class="form-group" style="margin-bottom: 1.5rem;">
-                    <label for="edit-ann-content" style="display: block; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; color: var(--text-muted);">Content Details</label>
-                    <textarea id="edit-ann-content" rows="5" required style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 10px 14px; border-radius: 8px; font-family: var(--font-main); resize: vertical;"></textarea>
+                    <label for="edit-ann-content"
+                        style="display: block; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; color: var(--text-muted);">Content
+                        Details</label>
+                    <textarea id="edit-ann-content" rows="5" required
+                        style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 10px 14px; border-radius: 8px; font-family: var(--font-main); resize: vertical;"></textarea>
                 </div>
                 <button type="submit" class="btn btn-primary" style="width: 100%;">Save Changes</button>
             </form>
@@ -560,4 +644,5 @@
 
     <script src="/static/app.js?v=2.1.2"></script>
 </body>
+
 </html>

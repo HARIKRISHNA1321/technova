@@ -335,38 +335,93 @@ def chatbot_endpoint(req: ChatRequest):
             
             streamed_any = False
             try:
-                from google import genai
                 import asyncio
-                
-                try:
-                    # 1. Try standard client (uses GEMINI_API_KEY from env if present)
-                    client = genai.Client()
-                    response_stream = client.models.generate_content_stream(
-                        model='gemini-2.5-flash',
-                        contents=prompt
-                    )
-                    for chunk in response_stream:
-                        if chunk.text:
-                            streamed_any = True
-                            for char in chunk.text:
-                                yield char
-                                await asyncio.sleep(0.001)
-                except Exception as sdk_err:
-                    write_log("CHATBOT_ERROR", f"Standard GenAI SDK call failed: {str(sdk_err)}. Attempting Vertex AI fallback...")
-                    # 2. Fall back to Vertex AI client (uses Google Auth default credentials)
-                    client = genai.Client(vertexai=True)
-                    response_stream = client.models.generate_content_stream(
-                        model='gemini-2.5-flash',
-                        contents=prompt
-                    )
-                    for chunk in response_stream:
-                        if chunk.text:
-                            streamed_any = True
-                            for char in chunk.text:
-                                yield char
-                                await asyncio.sleep(0.001)
+                import requests
+                from dotenv import load_dotenv
+                load_dotenv(override=True)
+                api_key = os.getenv("GEMINI_API_KEY", "").strip()
+
+                # 1. Try Direct REST Streaming API (Highly robust for AQ. keys)
+                write_log("CHATBOT_DEBUG", f"api_key loaded: length={len(api_key)}, starts_with={api_key[:5] if api_key else 'None'}")
+                if api_key:
+                    models_to_try = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-2.0-flash']
+                    for model_name in models_to_try:
+                        try:
+                            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:streamGenerateContent?key={api_key}"
+                            headers = {"Content-Type": "application/json"}
+                            data = {
+                                "contents": [{"parts": [{"text": prompt}]}]
+                            }
+                            write_log("CHATBOT_DEBUG", f"Attempting REST stream with model: {model_name}")
+                            response = requests.post(url, headers=headers, json=data, stream=True, timeout=30.0)
+                            write_log("CHATBOT_DEBUG", f"REST stream response status for {model_name}: {response.status_code}")
+                            if response.status_code == 200:
+                                for line in response.iter_lines():
+                                    if line:
+                                        line_str = line.decode('utf-8').strip()
+                                        if line_str.startswith('['):
+                                            line_str = line_str[1:]
+                                        if line_str.startswith(','):
+                                            line_str = line_str[1:]
+                                        if line_str.endswith(']'):
+                                            line_str = line_str[:-1]
+                                        line_str = line_str.strip()
+                                        if not line_str:
+                                            continue
+                                        try:
+                                            chunk_json = json.loads(line_str)
+                                            text = chunk_json["candidates"][0]["content"]["parts"][0]["text"]
+                                            if text:
+                                                streamed_any = True
+                                                for char in text:
+                                                    yield char
+                                                    await asyncio.sleep(0.001)
+                                        except Exception:
+                                            pass
+                                if streamed_any:
+                                    break
+                            else:
+                                try:
+                                    err_content = response.text
+                                except Exception:
+                                    err_content = "could not read body"
+                                write_log("CHATBOT_ERROR", f"REST stream {model_name} returned non-200: {response.status_code} - {err_content}")
+                        except Exception as rest_err:
+                            write_log("CHATBOT_ERROR", f"REST stream {model_name} request failed: {str(rest_err)}.")
+                            
+                # 2. Try SDK Fallbacks if REST did not stream anything
+                if not streamed_any:
+                    from google import genai
+                    try:
+                        if api_key:
+                            client = genai.Client(api_key=api_key)
+                        else:
+                            client = genai.Client()
+                        response_stream = client.models.generate_content_stream(
+                            model='gemini-2.5-flash',
+                            contents=prompt
+                        )
+                        for chunk in response_stream:
+                            if chunk.text:
+                                streamed_any = True
+                                for char in chunk.text:
+                                    yield char
+                                    await asyncio.sleep(0.001)
+                    except Exception as sdk_err:
+                        write_log("CHATBOT_ERROR", f"Standard GenAI SDK call failed: {str(sdk_err)}. Attempting Vertex AI fallback...")
+                        client = genai.Client(vertexai=True)
+                        response_stream = client.models.generate_content_stream(
+                            model='gemini-2.5-flash',
+                            contents=prompt
+                        )
+                        for chunk in response_stream:
+                            if chunk.text:
+                                streamed_any = True
+                                for char in chunk.text:
+                                    yield char
+                                    await asyncio.sleep(0.001)
             except Exception as e:
-                write_log("CHATBOT_ERROR", f"All Gemini GenAI SDK calls failed: {str(e)}")
+                write_log("CHATBOT_ERROR", f"All Gemini calls failed: {str(e)}")
             
             if not streamed_any:
                 fallback_msg = f"[RAG Rules Context] Retrieved Rules:\n{rules_context}\n\n(Please check that Google Cloud credentials or GEMINI_API_KEY are configured)"

@@ -1013,11 +1013,14 @@ hrEditForm.addEventListener('submit', async (e) => {
     const originalTeachers = { ...systemState.teachers };
 
     // Optimistic Update
-    systemState.teachers[username].name = payload.name;
-    systemState.teachers[username].email = payload.email;
-    systemState.teachers[username].department = payload.department;
-    systemState.teachers[username].designation = payload.designation;
-    systemState.teachers[username].employee_id = payload.employee_id;
+    systemState.teachers[username] = {
+        ...systemState.teachers[username],
+        name: payload.name,
+        email: payload.email,
+        department: payload.department,
+        designation: payload.designation,
+        employee_id: payload.employee_id
+    };
     updateDashboardView();
     editDrawer.classList.add('hidden');
 
