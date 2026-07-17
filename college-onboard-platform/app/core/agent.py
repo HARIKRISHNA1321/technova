@@ -485,7 +485,11 @@ async def scheduler_agent(ctx: Context, node_input: Any) -> Event:
         return None
         
     # 1. Fetch upcoming meetings
-    meetings = current_state.get("meetings", [])
+    try:
+        from app.endpoints.routes import get_calendar_meetings
+        meetings = get_calendar_meetings()
+    except Exception:
+        meetings = current_state.get("meetings", [])
     for m in meetings:
         m_date = m.get("event_date") or m.get("date")
         if m_date:

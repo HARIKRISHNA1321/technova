@@ -314,7 +314,7 @@ def run_scheduler_agent_brief(state: dict, username: str) -> str:
         return None
 
     # Check standard meetings
-    meetings = state.get("meetings", [])
+    meetings = get_calendar_meetings()
     for m in meetings:
         m_date = m.get("event_date") or m.get("date")
         if m_date:
