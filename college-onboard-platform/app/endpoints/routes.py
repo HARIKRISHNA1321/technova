@@ -284,6 +284,50 @@ def generate_ai_holiday_brief(holiday_name: str) -> str:
     return f"Public Holiday: celebration of {holiday_name}."
 
 
+def generate_ai_event_brief(title: str, description: str) -> dict:
+    """Generates a professional, engaging title and brief description for an event using Groq API."""
+    import os
+    import requests
+    import json
+    
+    default_res = {"ai_title": title, "ai_brief": description or "No additional details provided."}
+    groq_key = os.getenv("GROQ_API_KEY", "").strip()
+    if not groq_key or groq_key == "your_groq_api_key_here":
+        return default_res
+        
+    try:
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {groq_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "llama-3.1-8b-instant",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": f"Given the event title '{title}' and description '{description}', generate a short, professional alternative title (under 5 words) and a direct one-sentence description/brief info (under 15 words) in JSON format with keys 'ai_title' and 'ai_brief'."
+                }
+            ],
+            "response_format": {"type": "json_object"},
+            "temperature": 0.7,
+            "max_tokens": 100
+        }
+        res = requests.post(url, headers=headers, json=payload, timeout=10)
+        if res.status_code == 200:
+            data = res.json()
+            content = data["choices"][0]["message"]["content"].strip()
+            parsed = json.loads(content)
+            if "ai_title" in parsed and "ai_brief" in parsed:
+                return {
+                    "ai_title": parsed["ai_title"].strip().replace('"', ''),
+                    "ai_brief": parsed["ai_brief"].strip().replace('"', '')
+                }
+    except Exception as e:
+        print(f"[Groq Event Brief Error] {e}")
+    return default_res
+
+
 def run_scheduler_agent_brief(state: dict, username: str) -> str:
     """Checks upcoming meetings (within 3 days) and public holidays (only today), and salary status."""
     import datetime
@@ -292,37 +336,44 @@ def run_scheduler_agent_brief(state: dict, username: str) -> str:
     today_str = today.strftime("%Y-%m-%d")
     upcoming_meetings = []
     
-    # Ensure cache exists
+    # Ensure caches exist
     if "holiday_briefs_cache" not in state:
         state["holiday_briefs_cache"] = {}
+    if "event_briefs_cache" not in state:
+        state["event_briefs_cache"] = {}
         
-    # Helper to calculate delta and format message for meetings (3 days prior)
-    def get_meeting_message(title: str, date_str: str, description: str = "") -> str or None:
-        try:
-            event_date = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
-            delta = (event_date - today).days
-            if 0 <= delta <= 3:
-                if delta == 0:
-                    desc_suffix = f" (Brief Info: {description})" if description else ""
-                    return f"• {title} is today!{desc_suffix}"
-                elif delta == 1:
-                    return f"• {title} upcoming in 1 day"
-                else:
-                    return f"• {title} upcoming in {delta} days"
-        except Exception:
-            pass
-        return None
-
     # Check standard meetings
     meetings = get_calendar_meetings()
     for m in meetings:
         m_date = m.get("event_date") or m.get("date")
         if m_date:
-            title = m.get("title")
-            desc = m.get("description") or m.get("notes") or ""
-            msg = get_meeting_message(title, m_date, desc)
-            if msg:
-                upcoming_meetings.append(msg)
+            try:
+                event_date = datetime.datetime.strptime(m_date, "%Y-%m-%d").date()
+                delta = (event_date - today).days
+                if 0 <= delta <= 3:
+                    title = m.get("title")
+                    desc = m.get("description") or m.get("notes") or ""
+                    
+                    # Fetch from Groq or Cache
+                    cache_key = m.get("id") or f"{m_date}:{title}"
+                    if cache_key in state["event_briefs_cache"]:
+                        cached = state["event_briefs_cache"][cache_key]
+                        ai_title = cached.get("ai_title", title)
+                        ai_brief = cached.get("ai_brief", desc)
+                    else:
+                        cached = generate_ai_event_brief(title, desc)
+                        state["event_briefs_cache"][cache_key] = cached
+                        ai_title = cached.get("ai_title", title)
+                        ai_brief = cached.get("ai_brief", desc)
+                        
+                    if delta == 0:
+                        upcoming_meetings.append(f"• {ai_title} is today! (Brief Info: {ai_brief})")
+                    elif delta == 1:
+                        upcoming_meetings.append(f"• {ai_title} upcoming in 1 day (Brief Info: {ai_brief})")
+                    else:
+                        upcoming_meetings.append(f"• {ai_title} upcoming in {delta} days (Brief Info: {ai_brief})")
+            except Exception:
+                pass
             
     # Check holidays/events (ONLY on the day itself, with AI summary cached for the day)
     holidays = state.get("holidays", [])
@@ -350,10 +401,10 @@ def run_scheduler_agent_brief(state: dict, username: str) -> str:
     # Construct brief
     brief_parts = [salary_msg]
     if upcoming_meetings:
-        brief_parts.append("\n📅 **Upcoming Meetings & Events (Next 3 Days):**")
+        brief_parts.append("\n📅 Upcoming Meetings & Events:")
         brief_parts.extend(upcoming_meetings)
     else:
-        brief_parts.append("\n📅 No upcoming meetings or events in the next 3 days.")
+        brief_parts.append("\n📅 No upcoming meetings or events scheduled.")
         
     return "\n".join(brief_parts)
 

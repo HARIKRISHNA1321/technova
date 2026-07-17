@@ -434,9 +434,11 @@ async def scheduler_agent(ctx: Context, node_input: Any) -> Event:
     today_str = today.strftime("%Y-%m-%d")
     upcoming_meetings = []
     
-    # Ensure cache exists
+    # Ensure caches exist
     if "holiday_briefs_cache" not in current_state:
         current_state["holiday_briefs_cache"] = {}
+    if "event_briefs_cache" not in current_state:
+        current_state["event_briefs_cache"] = {}
         
     def generate_ai_holiday_brief(holiday_name: str) -> str:
         groq_key = os.getenv("GROQ_API_KEY", "").strip()
@@ -467,37 +469,81 @@ async def scheduler_agent(ctx: Context, node_input: Any) -> Event:
             print(f"[Groq Brief Error] {e}")
         return f"Public Holiday: celebration of {holiday_name}."
 
-    # Helper to calculate delta and format message for meetings (3 days prior)
-    def get_meeting_message(title: str, date_str: str, description: str = "") -> str or None:
+    def generate_ai_event_brief(title: str, description: str) -> dict:
+        import json
+        default_res = {"ai_title": title, "ai_brief": description or "No additional details provided."}
+        groq_key = os.getenv("GROQ_API_KEY", "").strip()
+        if not groq_key or groq_key == "your_groq_api_key_here":
+            return default_res
         try:
-            event_date = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
-            delta = (event_date - today).days
-            if 0 <= delta <= 3:
-                if delta == 0:
-                    desc_suffix = f" (Brief Info: {description})" if description else ""
-                    return f"• {title} is today!{desc_suffix}"
-                elif delta == 1:
-                    return f"• {title} upcoming in 1 day"
-                else:
-                    return f"• {title} upcoming in {delta} days"
-        except Exception:
-            pass
-        return None
-        
+            url = "https://api.groq.com/openai/v1/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {groq_key}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": "llama-3.1-8b-instant",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": f"Given the event title '{title}' and description '{description}', generate a short, professional alternative title (under 5 words) and a direct one-sentence description/brief info (under 15 words) in JSON format with keys 'ai_title' and 'ai_brief'."
+                    }
+                ],
+                "response_format": {"type": "json_object"},
+                "temperature": 0.7,
+                "max_tokens": 100
+            }
+            res = requests.post(url, headers=headers, json=payload, timeout=10)
+            if res.status_code == 200:
+                data = res.json()
+                content = data["choices"][0]["message"]["content"].strip()
+                parsed = json.loads(content)
+                if "ai_title" in parsed and "ai_brief" in parsed:
+                    return {
+                        "ai_title": parsed["ai_title"].strip().replace('"', ''),
+                        "ai_brief": parsed["ai_brief"].strip().replace('"', '')
+                    }
+        except Exception as e:
+            print(f"[Groq Event Brief Error] {e}")
+        return default_res
+
     # 1. Fetch upcoming meetings
     try:
         from app.endpoints.routes import get_calendar_meetings
         meetings = get_calendar_meetings()
     except Exception:
         meetings = current_state.get("meetings", [])
+        
     for m in meetings:
         m_date = m.get("event_date") or m.get("date")
         if m_date:
-            title = m.get("title")
-            desc = m.get("description") or m.get("notes") or ""
-            msg = get_meeting_message(title, m_date, desc)
-            if msg:
-                upcoming_meetings.append(msg)
+            try:
+                event_date = datetime.datetime.strptime(m_date, "%Y-%m-%d").date()
+                delta = (event_date - today).days
+                if 0 <= delta <= 3:
+                    title = m.get("title")
+                    desc = m.get("description") or m.get("notes") or ""
+                    
+                    # Fetch from Groq or Cache
+                    cache_key = m.get("id") or f"{m_date}:{title}"
+                    if cache_key in current_state["event_briefs_cache"]:
+                        cached = current_state["event_briefs_cache"][cache_key]
+                        ai_title = cached.get("ai_title", title)
+                        ai_brief = cached.get("ai_brief", desc)
+                    else:
+                        cached = generate_ai_event_brief(title, desc)
+                        current_state["event_briefs_cache"][cache_key] = cached
+                        ai_title = cached.get("ai_title", title)
+                        ai_brief = cached.get("ai_brief", desc)
+                        
+                    if delta == 0:
+                        upcoming_meetings.append(f"• {ai_title} is today! (Brief Info: {ai_brief})")
+                    elif delta == 1:
+                        upcoming_meetings.append(f"• {ai_title} upcoming in 1 day (Brief Info: {ai_brief})")
+                    else:
+                        upcoming_meetings.append(f"• {ai_title} upcoming in {delta} days (Brief Info: {ai_brief})")
+            except Exception:
+                pass
             
     # Check holidays/events (ONLY on the day itself, with AI summary cached for the day)
     holidays = current_state.get("holidays", [])
@@ -525,10 +571,10 @@ async def scheduler_agent(ctx: Context, node_input: Any) -> Event:
     # Construct brief
     brief_parts = [salary_msg]
     if upcoming_meetings:
-        brief_parts.append("\n📅 **Upcoming Meetings & Events (Next 3 Days):**")
+        brief_parts.append("\n📅 Upcoming Meetings & Events:")
         brief_parts.extend(upcoming_meetings)
     else:
-        brief_parts.append("\n📅 No upcoming meetings or events in the next 3 days.")
+        brief_parts.append("\n📅 No upcoming meetings or events scheduled.")
         
     pesu_companion_brief = "\n".join(brief_parts)
     
