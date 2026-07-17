@@ -249,6 +249,115 @@ async def upload_project_endpoint(
     return {"status": "success", "file_url": file_url}
 
 
+def generate_ai_holiday_brief(holiday_name: str) -> str:
+    """Generates a brief 1-sentence description/fun fact about a holiday/event using Groq API."""
+    import os
+    import requests
+    
+    groq_key = os.getenv("GROQ_API_KEY", "").strip()
+    if not groq_key or groq_key == "your_groq_api_key_here":
+        return f"Public Holiday: celebration of {holiday_name}."
+        
+    try:
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {groq_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "llama-3.1-8b-instant",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": f"Write a short, engaging one-sentence brief info or fun fact about the holiday: {holiday_name}. Keep it under 15 words and direct."
+                }
+            ],
+            "temperature": 0.7,
+            "max_tokens": 50
+        }
+        res = requests.post(url, headers=headers, json=payload, timeout=10)
+        if res.status_code == 200:
+            data = res.json()
+            return data["choices"][0]["message"]["content"].strip().replace('"', '')
+    except Exception as e:
+        print(f"[Groq Brief Error] {e}")
+    return f"Public Holiday: celebration of {holiday_name}."
+
+
+def run_scheduler_agent_brief(state: dict, username: str) -> str:
+    """Checks upcoming meetings (within 3 days) and public holidays (only today), and salary status."""
+    import datetime
+    
+    today = datetime.date.today()
+    today_str = today.strftime("%Y-%m-%d")
+    upcoming_meetings = []
+    
+    # Ensure cache exists
+    if "holiday_briefs_cache" not in state:
+        state["holiday_briefs_cache"] = {}
+        
+    # Helper to calculate delta and format message for meetings (3 days prior)
+    def get_meeting_message(title: str, date_str: str, description: str = "") -> str or None:
+        try:
+            event_date = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
+            delta = (event_date - today).days
+            if 0 <= delta <= 3:
+                if delta == 0:
+                    desc_suffix = f" (Brief Info: {description})" if description else ""
+                    return f"• {title} is today!{desc_suffix}"
+                elif delta == 1:
+                    return f"• {title} upcoming in 1 day"
+                else:
+                    return f"• {title} upcoming in {delta} days"
+        except Exception:
+            pass
+        return None
+
+    # Check standard meetings
+    meetings = state.get("meetings", [])
+    for m in meetings:
+        m_date = m.get("event_date") or m.get("date")
+        if m_date:
+            title = m.get("title")
+            desc = m.get("description") or m.get("notes") or ""
+            msg = get_meeting_message(title, m_date, desc)
+            if msg:
+                upcoming_meetings.append(msg)
+            
+    # Check holidays/events (ONLY on the day itself, with AI summary cached for the day)
+    holidays = state.get("holidays", [])
+    for h in holidays:
+        h_date = h.get("date")
+        if h_date == today_str:
+            title = h.get("localName") or h.get("name")
+            cache_key = f"{today_str}:{title}"
+            
+            if cache_key in state["holiday_briefs_cache"]:
+                brief_info = state["holiday_briefs_cache"][cache_key]
+            else:
+                brief_info = generate_ai_holiday_brief(title)
+                state["holiday_briefs_cache"][cache_key] = brief_info
+                # Clean up old keys from other dates
+                old_keys = [k for k in state["holiday_briefs_cache"].keys() if not k.startswith(today_str)]
+                for k in old_keys:
+                    del state["holiday_briefs_cache"][k]
+                    
+            upcoming_meetings.append(f"• 📅 Holiday: {title} is today! (Brief Info: {brief_info})")
+            
+    # 2. Salary status check (mock status)
+    salary_msg = "💰 Salary for the month has been credited."
+    
+    # Construct brief
+    brief_parts = [salary_msg]
+    if upcoming_meetings:
+        brief_parts.append("\n📅 **Upcoming Meetings & Events (Next 3 Days):**")
+        brief_parts.extend(upcoming_meetings)
+    else:
+        brief_parts.append("\n📅 No upcoming meetings or events in the next 3 days.")
+        
+    return "\n".join(brief_parts)
+
+
 @router.get("/api/state")
 def get_state() -> dict:
     store = LocalStateStore()
@@ -259,6 +368,19 @@ def get_state() -> dict:
         return state
 
     modified = False
+    initial_cache_len = len(state.get("holiday_briefs_cache", {}))
+    
+    # Run the scheduler agent brief generation for daily-phase teachers
+    for username, teacher in state.get("teachers", {}).items():
+        if teacher.get("onboarding_completed"):
+            old_brief = teacher.get("pesu_companion_brief", "")
+            new_brief = run_scheduler_agent_brief(state, username)
+            if old_brief != new_brief:
+                teacher["pesu_companion_brief"] = new_brief
+                modified = True
+                
+    if len(state.get("holiday_briefs_cache", {})) != initial_cache_len:
+        modified = True
     for username, teacher in state.get("teachers", {}).items():
         if "document_statuses" not in teacher or not teacher["document_statuses"]:
             teacher["document_statuses"] = {
@@ -944,6 +1066,15 @@ def trigger_action(req: ActionRequest, background_tasks: BackgroundTasks) -> dic
             raise HTTPException(status_code=404, detail="Teacher not found.")
         del state["teachers"][username]
         write_log("HR_AGENT", f"Deleted teacher profile: {username}")
+
+    elif action == "complete_onboarding":
+        username = payload.get("username")
+        if username not in state["teachers"]:
+            raise HTTPException(status_code=404, detail="Teacher not found.")
+        state["teachers"][username]["onboarding_completed"] = True
+        state["teachers"][username]["current_stage"] = "provisioning_complete"
+        state["teachers"][username]["onboarding_status_message"] = "Onboarding Process Completed!"
+        write_log("HR_PORTAL", f"Onboarding completed for teacher: {username}")
 
     elif action == "allot_seat":
         username = payload.get("username")

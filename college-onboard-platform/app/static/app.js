@@ -5,6 +5,84 @@ let systemState = null;
 let pollInterval = null;
 let editingSeating = {};
 let isUploading = false;
+window.isConfirming = false;
+
+// Beautiful Custom Modal Dialog (Alert/Confirm) Helpers
+window.showCustomAlert = function(title, message, icon = '⚠️') {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('custom-alert-modal');
+        const iconEl = document.getElementById('custom-alert-icon');
+        const titleEl = document.getElementById('custom-alert-title');
+        const msgEl = document.getElementById('custom-alert-message');
+        const okBtn = document.getElementById('custom-alert-ok');
+        const cancelBtn = document.getElementById('custom-alert-cancel');
+        
+        iconEl.innerText = icon;
+        titleEl.innerText = title;
+        msgEl.innerText = message;
+        cancelBtn.style.display = 'none';
+        modal.style.display = 'flex';
+        modal.classList.remove('hidden');
+        
+        window.isConfirming = true;
+        
+        okBtn.onclick = () => {
+            modal.style.display = 'none';
+            modal.classList.add('hidden');
+            window.isConfirming = false;
+            resolve(true);
+        };
+    });
+};
+
+window.showCustomConfirm = function(title, message, icon = '❓') {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('custom-alert-modal');
+        const iconEl = document.getElementById('custom-alert-icon');
+        const titleEl = document.getElementById('custom-alert-title');
+        const msgEl = document.getElementById('custom-alert-message');
+        const okBtn = document.getElementById('custom-alert-ok');
+        const cancelBtn = document.getElementById('custom-alert-cancel');
+        
+        iconEl.innerText = icon;
+        titleEl.innerText = title;
+        msgEl.innerText = message;
+        cancelBtn.style.display = 'block';
+        modal.style.display = 'flex';
+        modal.classList.remove('hidden');
+        
+        window.isConfirming = true;
+        
+        okBtn.onclick = () => {
+            modal.style.display = 'none';
+            modal.classList.add('hidden');
+            window.isConfirming = false;
+            resolve(true);
+        };
+        
+        cancelBtn.onclick = () => {
+            modal.style.display = 'none';
+            modal.classList.add('hidden');
+            window.isConfirming = false;
+            resolve(false);
+        };
+    });
+};
+
+// Override native alert to use the beautiful custom HTML modal dialog
+window.alert = function(msg) {
+    let title = 'Notification';
+    let icon = 'ℹ️';
+    const lower = String(msg).toLowerCase();
+    if (lower.includes('error') || lower.includes('failed') || lower.includes('incorrect') || lower.includes('invalid') || lower.includes('unauthorized')) {
+        title = 'Error';
+        icon = '❌';
+    } else if (lower.includes('success') || lower.includes('updated') || lower.includes('saved') || lower.includes('sent')) {
+        title = 'Success';
+        icon = '✅';
+    }
+    window.showCustomAlert(title, msg, icon);
+};
 
 // DOM Elements
 const loginScreen = document.getElementById('login-screen');
@@ -67,7 +145,7 @@ async function authenticate(username, password) {
         }
 
         if (!authenticated) {
-            alert('Invalid credentials. Please refer to login hint below the card.');
+            await showCustomAlert('Sign In Failed', 'Invalid credentials. Please refer to login hint below the card.', '🔒');
             return;
         }
 
@@ -154,6 +232,8 @@ logoutBtn.addEventListener('click', () => {
 // Periodic Synchronization
 async function syncStateData() {
     if (isUploading) return;
+    if (window.isConfirming) return;
+    if (!currentUser) return;
     const editDrawer = document.getElementById('hr-edit-drawer');
     if (editDrawer && !editDrawer.classList.contains('hidden')) return;
     try {
@@ -243,7 +323,7 @@ function showSettingsView(viewName) {
                     previewContainer.innerHTML = `<img src="${teacher.profile_photo_url}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
                     photoStatus.innerText = "Custom profile photo active";
                 } else {
-                    previewContainer.innerHTML = "👤";
+                    previewContainer.innerHTML = '<svg viewBox="0 0 100 100" style="width: 100%; height: 100%; display: block;"><circle cx="50" cy="38" r="18" fill="#959da5"/><path d="M50 62c-16 0-29 11-29 25h58c0-14-13-25-29-25z" fill="#959da5"/></svg>';
                     photoStatus.innerText = "No custom photo uploaded";
                 }
             }
@@ -345,22 +425,35 @@ function updateDashboardView() {
             profEmpid.innerText = teacher.employee_id || 'Not Assigned';
         }
 
-        // Onboarding Status
+        // Onboarding Status / PESU Companion Brief
         const statusVal = document.getElementById('onboarding-status-val');
         const statusContainer = document.getElementById('onboarding-status-container');
+        const statusSubtitle = document.getElementById('onboarding-status-subtitle');
         if (statusVal && statusContainer) {
-            const msg = teacher.onboarding_status_message || 'Please upload documents in document upload tab';
-            statusVal.innerText = msg;
-
-            if (msg.toLowerCase().includes('verified')) {
-                statusContainer.style.border = '1px solid rgba(86, 211, 100, 0.3)';
-                statusContainer.style.background = 'rgba(86, 211, 100, 0.02)';
-            } else if (msg.toLowerCase().includes('rejected')) {
-                statusContainer.style.border = '1px solid rgba(248, 81, 73, 0.3)';
-                statusContainer.style.background = 'rgba(248, 81, 73, 0.02)';
+            if (teacher.onboarding_completed) {
+                if (statusSubtitle) {
+                    statusSubtitle.innerText = "PESU Companion | Your Daily Brief";
+                }
+                const brief = teacher.pesu_companion_brief || '💰 Salary for the month has been credited.\n📅 No upcoming meetings or events scheduled.';
+                statusVal.innerHTML = brief.replace(/\n/g, '<br>');
+                statusContainer.style.border = '1px solid rgba(88, 166, 255, 0.3)';
+                statusContainer.style.background = 'rgba(88, 166, 255, 0.02)';
             } else {
-                statusContainer.style.border = '1px solid rgba(210, 153, 34, 0.3)';
-                statusContainer.style.background = 'rgba(210, 153, 34, 0.02)';
+                if (statusSubtitle) {
+                    statusSubtitle.innerText = "PESU Companion | Welcome & Setup";
+                }
+                const msg = teacher.onboarding_status_message || 'Please upload documents in document upload tab';
+                statusVal.innerText = msg;
+                if (msg.toLowerCase().includes('verified')) {
+                    statusContainer.style.border = '1px solid rgba(86, 211, 100, 0.3)';
+                    statusContainer.style.background = 'rgba(86, 211, 100, 0.02)';
+                } else if (msg.toLowerCase().includes('rejected')) {
+                    statusContainer.style.border = '1px solid rgba(248, 81, 73, 0.3)';
+                    statusContainer.style.background = 'rgba(248, 81, 73, 0.02)';
+                } else {
+                    statusContainer.style.border = '1px solid rgba(210, 153, 34, 0.3)';
+                    statusContainer.style.background = 'rgba(210, 153, 34, 0.02)';
+                }
             }
         }
 
@@ -811,6 +904,21 @@ function updateDashboardView() {
                         `;
                     }
 
+                    let completeOnboardingHTML = '';
+                    if (t.onboarding_completed) {
+                        completeOnboardingHTML = `
+                            <button class="btn btn-sm" style="padding: 8px 16px; margin-bottom: 8px; width: 100%; font-weight: 600; border-radius: 6px; background: rgba(35, 134, 54, 0.2); border: 1px solid rgba(35, 134, 54, 0.4); color: #56d364; cursor: default;" disabled>
+                                Onboarding Process Completed
+                            </button>
+                        `;
+                    } else {
+                        completeOnboardingHTML = `
+                            <button class="btn btn-sm" style="padding: 8px 16px; margin-bottom: 8px; width: 100%; font-weight: 600; border-radius: 6px; background: rgba(240, 140, 20, 0.2); border: 1px solid rgba(240, 140, 20, 0.4); color: #ffa657; cursor: pointer;" onclick="window.completeOnboarding('${t.username}')">
+                                Click to Complete Onboarding Process
+                            </button>
+                        `;
+                    }
+
                     if (isAllotted) {
                         card.innerHTML = `
                             <div class="verification-teacher-header">${t.name} (@${t.username})</div>
@@ -818,9 +926,12 @@ function updateDashboardView() {
                                 ${photoHTML}
                                 <div><strong>Department:</strong> ${t.department}</div>
                                 <div><strong>Designation:</strong> ${t.designation}</div>
-                                <div style="display: flex; gap: 15px; align-items: center; margin-top: 10px; background: rgba(88,166,255,0.05); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(88,166,255,0.15);">
-                                    <span style="font-size: 0.85rem; flex: 1;">📍 Seating: <strong style="color: #58a6ff;">${t.seating_info}</strong></span>
-                                    <button class="btn btn-secondary btn-sm" style="padding: 4px 12px;" onclick="enableSeatingEdit('${t.username}')">Edit</button>
+                                <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+                                    ${completeOnboardingHTML}
+                                    <div style="display: flex; gap: 15px; align-items: center; background: rgba(88,166,255,0.05); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(88,166,255,0.15);">
+                                        <span style="font-size: 0.85rem; flex: 1;">📍 Seating: <strong style="color: #58a6ff;">${t.seating_info}</strong></span>
+                                        <button class="btn btn-secondary btn-sm" style="padding: 4px 12px;" onclick="enableSeatingEdit('${t.username}')">Edit</button>
+                                    </div>
                                 </div>
                             </div>
                         `;
@@ -831,9 +942,12 @@ function updateDashboardView() {
                                 ${photoHTML}
                                 <div><strong>Department:</strong> ${t.department}</div>
                                 <div><strong>Designation:</strong> ${t.designation}</div>
-                                <div style="display: flex; gap: 10px; align-items: center; justify-content: space-between; margin-top: 10px;">
-                                    <span style="font-size: 0.85rem; color: var(--text-secondary);">📍 Seating: <strong style="color: var(--text-secondary);">Not Allotted</strong></span>
-                                    <button class="btn btn-primary btn-sm" style="padding: 8px 16px;" onclick="openSeatingModal('${t.username}')">Allocate Space</button>
+                                <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+                                    ${completeOnboardingHTML}
+                                    <div style="display: flex; gap: 10px; align-items: center; justify-content: space-between;">
+                                        <span style="font-size: 0.85rem; color: var(--text-secondary);">📍 Seating: <strong style="color: var(--text-secondary);">Not Allotted</strong></span>
+                                        <button class="btn btn-primary btn-sm" style="padding: 8px 16px;" onclick="openSeatingModal('${t.username}')">Allocate Space</button>
+                                    </div>
                                 </div>
                             </div>
                         `;
@@ -1016,6 +1130,46 @@ window.deleteProject = async function(filename) {
         teacher.projects = originalProjects;
         updateDashboardView();
         alert('Server communication error.');
+    }
+};
+
+window.completeOnboarding = async function(username) {
+    const confirmed = await showCustomConfirm(
+        'Complete Onboarding',
+        `Are you sure you want to mark onboarding as completed for @${username}?`,
+        '✅'
+    );
+    if (!confirmed) return;
+    
+    // Save original for rollback
+    const originalOnboarding = systemState.teachers[username].onboarding_completed;
+    
+    // Optimistic Update
+    systemState.teachers[username].onboarding_completed = true;
+    updateDashboardView();
+    
+    try {
+        const res = await fetch('/api/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'complete_onboarding',
+                payload: { username }
+            })
+        });
+        
+        if (!res.ok) {
+            systemState.teachers[username].onboarding_completed = originalOnboarding;
+            updateDashboardView();
+            const err = await res.json();
+            await showCustomAlert('Action Failed', `Error: ${err.detail}`);
+        } else {
+            syncStateData();
+        }
+    } catch (e) {
+        systemState.teachers[username].onboarding_completed = originalOnboarding;
+        updateDashboardView();
+        await showCustomAlert('Network Error', 'Server communication error.');
     }
 };
 

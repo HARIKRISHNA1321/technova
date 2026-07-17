@@ -139,7 +139,7 @@
                         </div>
                         <div id="onboarding-status-container"
                             style="margin-top: 20px; padding: 15px; border-radius: 8px; background: rgba(255,255,255,0.02); display: flex; flex-direction: column; gap: 6px; border: 1px solid rgba(255,255,255,0.1);">
-                            <h4 style="margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--text-secondary);">
+                            <h4 id="onboarding-status-subtitle" style="margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--text-secondary);">
                                 PESU Companion</h4>
                             <div id="onboarding-status-val" style="font-size: 0.9rem; color: #fff; font-weight: 500;">-
                             </div>
@@ -411,9 +411,13 @@
                                      style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: none; cursor: pointer; transition: background 0.2s ease, transform 0.1s ease; user-select: none;">
                                      <div class="settings-item-left"
                                          style="display: flex; align-items: center; gap: 12px; font-size: 1rem; font-weight: 500; color: #c9d1d9;">
-                                         <span class="settings-item-icon"
-                                             style="font-size: 1.2rem; color: #8b949e;">🖼️</span>
-                                         <span>Profile Photo</span>
+                                          <div class="settings-item-icon" style="width: 22px; height: 22px; border-radius: 50%; background: #e1e4e8; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.3); flex-shrink: 0;">
+                                              <svg viewBox="0 0 100 100" style="width: 100%; height: 100%; display: block;">
+                                                  <circle cx="50" cy="38" r="18" fill="#959da5"/>
+                                                  <path d="M50 62c-16 0-29 11-29 25h58c0-14-13-25-29-25z" fill="#959da5"/>
+                                              </svg>
+                                          </div>
+                                          <span>Update Profile Photo</span>
                                      </div>
                                      <span class="settings-item-chevron"
                                          style="color: #8b949e; font-size: 1.1rem; font-weight: bold;">&gt;</span>
@@ -428,10 +432,13 @@
                             <div class="settings-card"
                                 style="max-width: 450px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 25px;">
                                 <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 1.2rem; color: #58a6ff;">
-                                    Profile Photo</h3>
+                                    Update Profile Photo</h3>
                                 <div style="display: flex; flex-direction: column; align-items: center; gap: 15px; margin-bottom: 20px;">
-                                    <div id="settings-photo-preview-container" style="width: 100px; height: 100px; border-radius: 50%; background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 3rem; overflow: hidden; position: relative;">
-                                        👤
+                                    <div id="settings-photo-preview-container" style="width: 100px; height: 100px; border-radius: 50%; background: #e1e4e8; border: 2px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);">
+                                        <svg viewBox="0 0 100 100" style="width: 100%; height: 100%; display: block;">
+                                            <circle cx="50" cy="38" r="18" fill="#959da5"/>
+                                            <path d="M50 62c-16 0-29 11-29 25h58c0-14-13-25-29-25z" fill="#959da5"/>
+                                        </svg>
                                     </div>
                                     <span id="settings-photo-status" style="font-size: 0.85rem; color: #8b949e;">No custom photo uploaded</span>
                                 </div>
@@ -978,7 +985,20 @@
         </div>
     </div>
 
-    <script src="/static/app.js?v=2.1.2"></script>
+    <!-- Beautiful Custom Modal Dialog (Alert/Confirm) -->
+    <div id="custom-alert-modal" class="modal hidden" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); z-index: 10000; display: flex; align-items: center; justify-content: center;">
+        <div style="background: #161b22; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; max-width: 400px; width: 90%; padding: 25px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); display: flex; flex-direction: column; gap: 15px; text-align: center;">
+            <div id="custom-alert-icon" style="font-size: 2.5rem; color: #ffa657;">⚠️</div>
+            <h3 id="custom-alert-title" style="margin: 0; color: #fff; font-size: 1.25rem;">Alert</h3>
+            <p id="custom-alert-message" style="margin: 0; color: #c9d1d9; font-size: 0.95rem; line-height: 1.5;"></p>
+            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 10px;">
+                <button id="custom-alert-cancel" class="btn btn-secondary" style="margin: 0; display: none;">Cancel</button>
+                <button id="custom-alert-ok" class="btn btn-primary" style="margin: 0; min-width: 80px;">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js?v=2.1.6"></script>
 </body>
 
 </html>

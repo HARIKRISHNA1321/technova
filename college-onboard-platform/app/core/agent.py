@@ -421,63 +421,140 @@ def policy_rag_agent(ctx: Context, node_input: Any) -> Event:
 
 
 @node(rerun_on_resume=True)
-@review_before_execute(api_action="Schedule calendar appointment and invite chairperson")
 async def scheduler_agent(ctx: Context, node_input: Any) -> Event:
-    """Manages sequential scheduling: first with manager, then email chairperson."""
-    teacher_name = ctx.state.get("name") or ctx.state.get("candidate_name") or "New Faculty Member"
-    teacher_email = ctx.state.get("email") or "faculty@pes.edu"
-    document_statuses = ctx.state.get("document_statuses", {})
-    all_approved = all(status == "approved" for status in document_statuses.values()) if document_statuses else False
-
-    if all_approved and not ctx.state.get("chairperson_notified", False):
-        import smtplib
-        from email.mime.multipart import MIMEMultipart
-        from email.mime.text import MIMEText
-        import logging
-        from app.core.config import SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, CHAIRPERSON_EMAIL
-
-        logging.info(f"Preparing to send chairperson email for {teacher_name}")
-        try:
-            from app.app_utils.email import send_email
-            from app.core.config import CHAIRPERSON_EMAIL
-
-            body = f"""Dear Chairperson,
-
-An interview appointment request has been made for a new faculty member's onboarding.
-
-Faculty Name: {teacher_name}
-Email Address: {teacher_email}
-
-Please schedule a suitable interview slot.
-
-Best Regards,
-PES University Onboarding System"""
-
-            send_email(CHAIRPERSON_EMAIL, "Interview Appointment Request: New Faculty Onboarding", body, is_html=False)
-            print(f"Interview request dispatched to Chairperson for {teacher_name}")
-        except Exception as e:
-            logging.error(f"Failed to email chairperson: {e}")
-
-    if not ctx.state.get("manager_interview_scheduled", False):
-        state_updates = {
-            "manager_interview_scheduled": True,
-            "active_stage": "Manager-Interview-Scheduled"
-        }
-        local_store = LocalStateStore()
-        current_state = local_store.load_state()
-        current_state.update(state_updates)
-        local_store.save_state(current_state)
-        return Event(output="Scheduler: Manager interview scheduled.", route="email_chairperson", state=state_updates)
-    
-    state_updates = {
-        "chairperson_notified": True,
-        "active_stage": "Chairperson-Notified"
-    }
+    """Checks upcoming meetings (within 3 days) and public holidays (only today), and salary status."""
     local_store = LocalStateStore()
-    current_state = local_store.load_state()
+    current_state = local_store.load_state() or {}
+    
+    import datetime
+    import os
+    import requests
+    
+    today = datetime.date.today()
+    today_str = today.strftime("%Y-%m-%d")
+    upcoming_meetings = []
+    
+    # Ensure cache exists
+    if "holiday_briefs_cache" not in current_state:
+        current_state["holiday_briefs_cache"] = {}
+        
+    def generate_ai_holiday_brief(holiday_name: str) -> str:
+        groq_key = os.getenv("GROQ_API_KEY", "").strip()
+        if not groq_key or groq_key == "your_groq_api_key_here":
+            return f"Public Holiday: celebration of {holiday_name}."
+        try:
+            url = "https://api.groq.com/openai/v1/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {groq_key}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": "llama-3.1-8b-instant",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": f"Write a short, engaging one-sentence brief info or fun fact about the holiday: {holiday_name}. Keep it under 15 words and direct."
+                    }
+                ],
+                "temperature": 0.7,
+                "max_tokens": 50
+            }
+            res = requests.post(url, headers=headers, json=payload, timeout=10)
+            if res.status_code == 200:
+                data = res.json()
+                return data["choices"][0]["message"]["content"].strip().replace('"', '')
+        except Exception as e:
+            print(f"[Groq Brief Error] {e}")
+        return f"Public Holiday: celebration of {holiday_name}."
+
+    # Helper to calculate delta and format message for meetings (3 days prior)
+    def get_meeting_message(title: str, date_str: str, description: str = "") -> str or None:
+        try:
+            event_date = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
+            delta = (event_date - today).days
+            if 0 <= delta <= 3:
+                if delta == 0:
+                    desc_suffix = f" (Brief Info: {description})" if description else ""
+                    return f"• {title} is today!{desc_suffix}"
+                elif delta == 1:
+                    return f"• {title} upcoming in 1 day"
+                else:
+                    return f"• {title} upcoming in {delta} days"
+        except Exception:
+            pass
+        return None
+        
+    # 1. Fetch upcoming meetings
+    meetings = current_state.get("meetings", [])
+    for m in meetings:
+        m_date = m.get("event_date") or m.get("date")
+        if m_date:
+            title = m.get("title")
+            desc = m.get("description") or m.get("notes") or ""
+            msg = get_meeting_message(title, m_date, desc)
+            if msg:
+                upcoming_meetings.append(msg)
+            
+    # Check holidays/events (ONLY on the day itself, with AI summary cached for the day)
+    holidays = current_state.get("holidays", [])
+    for h in holidays:
+        h_date = h.get("date")
+        if h_date == today_str:
+            title = h.get("localName") or h.get("name")
+            cache_key = f"{today_str}:{title}"
+            
+            if cache_key in current_state["holiday_briefs_cache"]:
+                brief_info = current_state["holiday_briefs_cache"][cache_key]
+            else:
+                brief_info = generate_ai_holiday_brief(title)
+                current_state["holiday_briefs_cache"][cache_key] = brief_info
+                # Clean up old keys from other dates
+                old_keys = [k for k in current_state["holiday_briefs_cache"].keys() if not k.startswith(today_str)]
+                for k in old_keys:
+                    del current_state["holiday_briefs_cache"][k]
+                    
+            upcoming_meetings.append(f"• 📅 Holiday: {title} is today! (Brief Info: {brief_info})")
+            
+    # 2. Salary status check (mock status)
+    salary_msg = "💰 Salary for the month has been credited."
+    
+    # Construct brief
+    brief_parts = [salary_msg]
+    if upcoming_meetings:
+        brief_parts.append("\n📅 **Upcoming Meetings & Events (Next 3 Days):**")
+        brief_parts.extend(upcoming_meetings)
+    else:
+        brief_parts.append("\n📅 No upcoming meetings or events in the next 3 days.")
+        
+    pesu_companion_brief = "\n".join(brief_parts)
+    
+    # Update state
+    state_updates = {
+        "pesu_companion_brief": pesu_companion_brief,
+        "onboarding_completed": True,
+        "current_stage": "provisioning_complete",
+        "onboarding_status_message": "Onboarding Process Completed!"
+    }
+    
+    # Update Context state so downstream workflow nodes have access
+    for k, v in state_updates.items():
+        ctx.state[k] = v
+        
+    username = ctx.state.get("username")
+    if current_state and "teachers" in current_state:
+        if username in current_state["teachers"]:
+            current_state["teachers"][username].update(state_updates)
+        else:
+            email = ctx.state.get("email")
+            for t_username, t_data in current_state["teachers"].items():
+                if t_data.get("email") == email:
+                    t_data.update(state_updates)
+                    break
+                    
     current_state.update(state_updates)
     local_store.save_state(current_state)
-    return Event(output="Scheduler: Chairperson emailed to secure final presentation availability.", route="final_presentation_secured", state=state_updates)
+    
+    return Event(output="Scheduler Agent: Updated PESU Companion daily brief.", state=state_updates)
 
 
 @node(rerun_on_resume=True)
