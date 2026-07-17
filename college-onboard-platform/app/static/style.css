@@ -1224,9 +1224,15 @@ body {
 }
 
 .calendar-day-cell.sunday {
-    background: rgba(255, 255, 255, 0.05) !important;
-    color: var(--text-muted) !important;
+    background: rgba(38, 38, 38, 0.4) !important;
+    color: #6b7280 !important;
+    opacity: 0.5;
 }
+
+.calendar-day-cell.sunday .calendar-day-number {
+    color: #6b7280 !important;
+}
+
 
 /* Tailwind emulation classes requested by user */
 .bg-gray-100 {

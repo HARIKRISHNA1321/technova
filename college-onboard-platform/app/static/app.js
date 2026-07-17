@@ -2554,7 +2554,7 @@ async function renderCalendar() {
         const weekdayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
         
         if (isSunday) {
-            cell.className += ' bg-neutral-800/30 text-neutral-500 pointer-events-none';
+            cell.className += ' sunday bg-neutral-800/30 text-neutral-500 pointer-events-none';
         } else {
             cell.className += ' cursor-pointer hover:bg-neutral-800/30';
         }
@@ -2933,7 +2933,7 @@ async function renderAdminCalendar() {
         const isSunday = dateObj.getDay() === 0;
         
         if (isSunday) {
-            cell.className += ' bg-neutral-800/30 text-neutral-500 pointer-events-none';
+            cell.className += ' sunday bg-neutral-800/30 text-neutral-500 pointer-events-none';
         }
 
         // Highlight current day if active
