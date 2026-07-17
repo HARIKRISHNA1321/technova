@@ -1465,7 +1465,9 @@ def add_calendar_meeting(meeting: MeetingSchema) -> dict:
     if supabase_url and supabase_key:
         try:
             client = create_client(supabase_url, supabase_key)
-            res = client.table("meetings").insert(meeting_dict).execute()
+            # Remove backward compatibility keys not in Supabase schema
+            supabase_payload = {k: v for k, v in meeting_dict.items() if k not in ["date", "time", "type"]}
+            res = client.table("meetings").insert(supabase_payload).execute()
             if res.data:
                 return {"status": "success", "event": res.data[0]}
         except Exception as e:
@@ -1473,8 +1475,7 @@ def add_calendar_meeting(meeting: MeetingSchema) -> dict:
             
     # Fallback to local state
     if "meetings" not in state:
-        get_calendar_meetings()
-        state = store.load_state()
+        state["meetings"] = get_calendar_meetings()
         
     state["meetings"].append(meeting_dict)
     store.save_state(state)
@@ -1512,7 +1513,9 @@ def update_calendar_meeting(id: str, meeting: MeetingSchema) -> dict:
     if supabase_url and supabase_key:
         try:
             client = create_client(supabase_url, supabase_key)
-            res = client.table("meetings").update(meeting_dict).eq("id", id).execute()
+            # Remove backward compatibility keys not in Supabase schema
+            supabase_payload = {k: v for k, v in meeting_dict.items() if k not in ["date", "time", "type"]}
+            res = client.table("meetings").update(supabase_payload).eq("id", id).execute()
             if res.data:
                 return {"status": "success", "event": res.data[0]}
         except Exception as e:
@@ -1520,8 +1523,7 @@ def update_calendar_meeting(id: str, meeting: MeetingSchema) -> dict:
             
     # Fallback to local state
     if "meetings" not in state:
-        get_calendar_meetings()
-        state = store.load_state()
+        state["meetings"] = get_calendar_meetings()
         
     for i, m in enumerate(state["meetings"]):
         if str(m.get("id")) == str(id):
@@ -1647,7 +1649,9 @@ def add_timetable_class(t_class: TimetableClassSchema) -> dict:
     if supabase_url and supabase_key:
         try:
             client = create_client(supabase_url, supabase_key)
-            res = client.table("timetable_classes").insert(t_dict).execute()
+            # Remove backward compatibility keys not in Supabase schema
+            supabase_payload = {k: v for k, v in t_dict.items() if k not in ["subject", "time", "class_", "day"]}
+            res = client.table("timetable_classes").insert(supabase_payload).execute()
             if res.data:
                 update_legacy_teacher_schedule(state, store)
                 return {"status": "success", "class": res.data[0]}
@@ -1656,8 +1660,7 @@ def add_timetable_class(t_class: TimetableClassSchema) -> dict:
             
     # Fallback to local state
     if "timetable_classes" not in state:
-        get_calendar_timetable()
-        state = store.load_state()
+        state["timetable_classes"] = get_calendar_timetable()
         
     state["timetable_classes"].append(t_dict)
     store.save_state(state)
@@ -1692,7 +1695,9 @@ def update_timetable_class(id: str, t_class: TimetableClassSchema) -> dict:
     if supabase_url and supabase_key:
         try:
             client = create_client(supabase_url, supabase_key)
-            res = client.table("timetable_classes").update(t_dict).eq("id", id).execute()
+            # Remove backward compatibility keys not in Supabase schema
+            supabase_payload = {k: v for k, v in t_dict.items() if k not in ["subject", "time", "class_", "day"]}
+            res = client.table("timetable_classes").update(supabase_payload).eq("id", id).execute()
             if res.data:
                 update_legacy_teacher_schedule(state, store)
                 return {"status": "success", "class": res.data[0]}
@@ -1701,8 +1706,7 @@ def update_timetable_class(id: str, t_class: TimetableClassSchema) -> dict:
             
     # Fallback to local state
     if "timetable_classes" not in state:
-        get_calendar_timetable()
-        state = store.load_state()
+        state["timetable_classes"] = get_calendar_timetable()
         
     for i, c in enumerate(state["timetable_classes"]):
         if str(c.get("id")) == str(id):
