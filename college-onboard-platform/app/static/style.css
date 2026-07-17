@@ -1233,6 +1233,16 @@ body {
     color: #6b7280 !important;
 }
 
+input[type="time"] {
+    color: #ffffff !important;
+    color-scheme: dark !important;
+}
+input[type="time"]::-webkit-calendar-picker-indicator {
+    filter: invert(1) !important;
+    cursor: pointer;
+}
+
+
 
 /* Tailwind emulation classes requested by user */
 .bg-gray-100 {
@@ -1276,9 +1286,19 @@ body {
 }
 
 .calendar-event-holiday {
-    background: rgba(217, 119, 6, 0.2);
-    color: #fde047;
-    border-left: 3px solid var(--amber);
+    background: rgba(239, 68, 68, 0.15) !important;
+    color: #f87171 !important;
+    border-left: 3px solid #ef4444 !important;
+}
+
+.calendar-day-cell.holiday-cell {
+    background: rgba(239, 68, 68, 0.05) !important;
+    border-color: rgba(239, 68, 68, 0.2) !important;
+}
+
+.calendar-day-cell.holiday-cell:hover {
+    background: rgba(239, 68, 68, 0.12) !important;
+    border-color: rgba(239, 68, 68, 0.35) !important;
 }
 
 @media (max-width: 768px) {

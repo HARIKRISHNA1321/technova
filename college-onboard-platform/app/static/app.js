@@ -2591,6 +2591,12 @@ async function renderCalendar() {
 
         const dateStr = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
+        // Color code public holiday cells as red
+        const dayHolidays = holidaysByDate[dateStr] || [];
+        if (dayHolidays.length > 0) {
+            cell.className += ' holiday-cell';
+        }
+
         // Add day cell click listener
         if (!isSunday) {
             cell.addEventListener('click', () => {
@@ -2684,10 +2690,10 @@ async function renderCalendar() {
         eventsContainer.className = 'calendar-events-list flex flex-col gap-1 overflow-y-auto max-h-[80px] mt-1';
 
         // Public holidays displayed in both views
-        const dayHolidays = holidaysByDate[dateStr] || [];
-        dayHolidays.forEach(h => {
+        const dayHolidaysList = holidaysByDate[dateStr] || [];
+        dayHolidaysList.forEach(h => {
             const badge = document.createElement('span');
-            badge.className = 'calendar-event-badge bg-red-600/20 text-red-400 px-1.5 py-0.5 rounded text-[10px] block w-full truncate whitespace-nowrap overflow-hidden border border-red-500/30';
+            badge.className = 'calendar-event-badge calendar-event-holiday bg-red-600/20 text-red-400 px-1.5 py-0.5 rounded text-[10px] block w-full truncate whitespace-nowrap overflow-hidden border border-red-500/30';
             badge.innerText = `🌴 ${h.localName || h.name}`;
             badge.title = h.name;
             eventsContainer.appendChild(badge);
@@ -2744,10 +2750,23 @@ async function initAdminCalendar() {
     const filterSelect = document.getElementById('admin-calendar-filter-select');
     if (filterSelect) {
         filterSelect.value = adminCalendarFilter;
+        
+        // Show/hide teacher select container initially
+        const teacherFilter = document.getElementById('admin-calendar-teacher-filter-container');
+        if (teacherFilter) {
+            teacherFilter.style.display = (adminCalendarFilter === 'timetable') ? 'block' : 'none';
+        }
+        
         if (!filterSelect.dataset.hasListener) {
             filterSelect.dataset.hasListener = "true";
             filterSelect.addEventListener('change', () => {
                 adminCalendarFilter = filterSelect.value;
+                
+                // Show/hide teacher select container on filter change
+                if (teacherFilter) {
+                    teacherFilter.style.display = (adminCalendarFilter === 'timetable') ? 'block' : 'none';
+                }
+                
                 renderAdminCalendar();
             });
         }
@@ -2857,15 +2876,11 @@ async function initAdminCalendar() {
     // Fetch initial academic events
     await fetchAdminEvents();
 
-    // Fetch initial timetable classes
-    try {
-        const res = await fetch('/api/calendar/timetable');
-        if (res.ok) {
-            teacherSchedule = await res.json();
-        }
-    } catch (e) {
-        console.error('Error fetching admin timetable:', e);
-    }
+    // Reset teacherSchedule for admin timetable select
+    teacherSchedule = [];
+
+    // Initialize the calendar teacher search dropdown
+    initAdminCalendarTeacherDropdown();
 
     // Render calendar
     renderAdminCalendar();
@@ -2968,6 +2983,12 @@ async function renderAdminCalendar() {
 
         const dateStr = `${adminCalendarYear}-${String(adminCalendarMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
+        // Color code public holiday cells as red
+        const dayHolidays = holidaysByDate[dateStr] || [];
+        if (dayHolidays.length > 0) {
+            cell.className += ' holiday-cell';
+        }
+
         const weekdayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
 
         // Clicking on the cell opens appropriate config modal
@@ -2999,10 +3020,10 @@ async function renderAdminCalendar() {
         eventsContainer.className = 'calendar-events-list flex flex-col gap-1 overflow-y-auto max-h-[80px] mt-1';
 
         // Public holidays displayed in both views
-        const dayHolidays = holidaysByDate[dateStr] || [];
-        dayHolidays.forEach(h => {
+        const dayHolidaysList = holidaysByDate[dateStr] || [];
+        dayHolidaysList.forEach(h => {
             const badge = document.createElement('span');
-            badge.className = 'calendar-event-badge bg-red-600/20 text-red-400 px-1.5 py-0.5 rounded text-[10px] block w-full truncate whitespace-nowrap overflow-hidden border border-red-500/30';
+            badge.className = 'calendar-event-badge calendar-event-holiday bg-red-600/20 text-red-400 px-1.5 py-0.5 rounded text-[10px] block w-full truncate whitespace-nowrap overflow-hidden border border-red-500/30';
             badge.innerText = `🌴 ${h.localName || h.name}`;
             badge.title = h.name;
             eventsContainer.appendChild(badge);
@@ -3290,6 +3311,12 @@ function setupCalendarEventModalListeners() {
 }
 
 function openAdminTimetableModal(clickedDayName = 'Monday') {
+    const selectedTeacher = document.getElementById('admin-calendar-selected-teacher-username').value;
+    if (!selectedTeacher) {
+        alert('Please select a teacher in the calendar first.');
+        return;
+    }
+
     const modal = document.getElementById('admin-timetable-modal');
     if (!modal) return;
 
@@ -3299,19 +3326,16 @@ function openAdminTimetableModal(clickedDayName = 'Monday') {
         dayInput.value = clickedDayName;
     }
 
-    // Populate searchable teacher dropdown
-    populateTimetableTeacherDropdown();
-
-    // Populate current timetable sessions list
+    // Populate current timetable sessions list for the already-selected teacher
     renderAdminTimetableSessionsList();
 
     modal.classList.remove('hidden');
 }
 
-function populateTimetableTeacherDropdown() {
-    const searchInput = document.getElementById('timetable-teacher-search-input');
-    const dropdownList = document.getElementById('timetable-teacher-dropdown-list');
-    const hiddenSelect = document.getElementById('timetable-teacher-select');
+function initAdminCalendarTeacherDropdown() {
+    const searchInput = document.getElementById('admin-calendar-teacher-search');
+    const dropdownList = document.getElementById('admin-calendar-teacher-dropdown-list');
+    const hiddenSelect = document.getElementById('admin-calendar-selected-teacher-username');
     if (!searchInput || !dropdownList || !hiddenSelect || !systemState || !systemState.teachers) return;
 
     const teachers = Object.keys(systemState.teachers).map(uname => {
@@ -3320,17 +3344,30 @@ function populateTimetableTeacherDropdown() {
 
     const renderList = (filterText = '') => {
         dropdownList.innerHTML = '';
+        
+        // Include a 'Select' option at the top of the list
+        const selectItem = document.createElement('div');
+        selectItem.style.padding = '10px 14px';
+        selectItem.style.cursor = 'pointer';
+        selectItem.style.fontSize = '0.9rem';
+        selectItem.style.borderBottom = '1px solid rgba(255, 255, 255, 0.02)';
+        selectItem.innerHTML = `<span style="font-weight: 500; color: #888;">Select Teacher</span>`;
+        selectItem.addEventListener('click', () => {
+            searchInput.value = 'Select';
+            hiddenSelect.value = '';
+            dropdownList.style.display = 'none';
+            onAdminCalendarTeacherSelected('');
+        });
+        selectItem.addEventListener('mouseenter', () => selectItem.style.background = 'rgba(255, 255, 255, 0.05)');
+        selectItem.addEventListener('mouseleave', () => selectItem.style.background = 'transparent');
+        dropdownList.appendChild(selectItem);
+
         const filtered = teachers.filter(t => {
             const name = (t.name || '').toLowerCase();
             const empId = (t.employee_id || '').toLowerCase();
             const search = filterText.toLowerCase();
             return name.includes(search) || empId.includes(search);
         });
-
-        if (filtered.length === 0) {
-            dropdownList.innerHTML = '<div style="padding: 10px; color: #888; font-size: 0.85rem;">No teachers found</div>';
-            return;
-        }
 
         filtered.forEach(t => {
             const item = document.createElement('div');
@@ -3352,10 +3389,9 @@ function populateTimetableTeacherDropdown() {
                 searchInput.value = t.name || t.username;
                 hiddenSelect.value = t.username;
                 dropdownList.style.display = 'none';
-                onTimetableTeacherSelected(t.username);
+                onAdminCalendarTeacherSelected(t.username);
             });
 
-            // Hover effect styling
             item.addEventListener('mouseenter', () => {
                 item.style.background = 'rgba(255, 255, 255, 0.05)';
             });
@@ -3370,6 +3406,9 @@ function populateTimetableTeacherDropdown() {
     if (!searchInput.dataset.hasListener) {
         searchInput.dataset.hasListener = "true";
         searchInput.addEventListener('focus', () => {
+            if (searchInput.value === 'Select') {
+                searchInput.value = '';
+            }
             dropdownList.style.display = 'block';
             renderList(searchInput.value);
         });
@@ -3382,27 +3421,25 @@ function populateTimetableTeacherDropdown() {
         document.addEventListener('click', (e) => {
             if (!searchInput.contains(e.target) && !dropdownList.contains(e.target)) {
                 dropdownList.style.display = 'none';
+                if (!hiddenSelect.value) {
+                    searchInput.value = 'Select';
+                }
             }
         });
     }
 
-    // Set default value if empty
-    if (!hiddenSelect.value && teachers.length > 0) {
-        const defaultTeacher = teachers[0];
-        searchInput.value = defaultTeacher.name || defaultTeacher.username;
-        hiddenSelect.value = defaultTeacher.username;
-        onTimetableTeacherSelected(defaultTeacher.username);
+    if (!hiddenSelect.value) {
+        searchInput.value = 'Select';
     }
 }
 
-function onTimetableTeacherSelected(username) {
-    if (!systemState || !systemState.teachers || !systemState.teachers[username]) return;
-    
-    const teacher = systemState.teachers[username];
-    teacherSchedule = teacher.schedule || [];
-    
-    // Update the Current Timetable list below
-    renderAdminTimetableSessionsList();
+function onAdminCalendarTeacherSelected(username) {
+    if (username && systemState && systemState.teachers && systemState.teachers[username]) {
+        teacherSchedule = systemState.teachers[username].schedule || [];
+    } else {
+        teacherSchedule = [];
+    }
+    renderAdminCalendar();
 }
 
 function formatTimeInputToAmPm(timeStr) {
@@ -3431,7 +3468,7 @@ function renderAdminTimetableSessionsList() {
                 <strong class="text-purple-400">${s.subject || 'Lecture'}</strong> (${s.class})
                 <div class="text-[10px] text-neutral-400">${s.day} | ${s.time}</div>
             </div>
-            <button class="btn-delete-session text-red-400 hover:text-red-300 font-bold" style="background:none; border:none; cursor:pointer;" onclick="deleteTimetableSession(${idx})">Delete</button>
+            <button class="btn-delete-session px-2 py-1 bg-red-950/40 hover:bg-red-900/60 text-red-400 hover:text-red-300 rounded border border-red-500/20 font-semibold" style="cursor:pointer;" onclick="deleteTimetableSession(${idx})">Delete</button>
         `;
         listContainer.appendChild(item);
     });
@@ -3454,8 +3491,12 @@ async function deleteTimetableSession(index) {
 window.deleteTimetableSession = deleteTimetableSession;
 
 async function saveTeacherSchedule() {
+    const selectedTeacher = document.getElementById('admin-calendar-selected-teacher-username').value;
+    if (!selectedTeacher) {
+        alert('Please select a teacher in the calendar first.');
+        return;
+    }
     try {
-        const selectedTeacher = document.getElementById('timetable-teacher-select').value || 'teacher';
         const res = await fetch('/api/teacher/schedule', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3500,6 +3541,12 @@ function setupAdminTimetableFormListener() {
         form.dataset.hasListener = "true";
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
+
+            const teacherSelect = document.getElementById('admin-calendar-selected-teacher-username').value;
+            if (!teacherSelect) {
+                alert('Please select a teacher in the calendar first.');
+                return;
+            }
 
             const startTime = document.getElementById('timetable-start-time').value;
             const endTime = document.getElementById('timetable-end-time').value;

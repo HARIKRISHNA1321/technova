@@ -687,7 +687,18 @@
                     <!-- Calendar Management View -->
                     <div id="tab-admin-calendar" class="tab-pane hidden">
                         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 1rem; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
-                            <h2 style="margin: 0;">Calendar Management</h2>
+                            <div style="display: flex; align-items: center; gap: 1.5rem;">
+                                <h2 style="margin: 0;">Calendar Management</h2>
+                                
+                                <!-- Searchable Teacher dropdown next to the title -->
+                                <div id="admin-calendar-teacher-filter-container" style="display: none; position: relative; width: 220px; z-index: 1000;">
+                                    <input type="text" id="admin-calendar-teacher-search" autocomplete="off" placeholder="Select Teacher..." style="width: 100%; background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.1); color: #fff; padding: 8px 12px; border-radius: 6px; outline: none; font-size: 0.9rem; font-family: var(--font-main);">
+                                    <div id="admin-calendar-teacher-dropdown-list" style="position: absolute; left: 0; right: 0; top: 100%; background: #1e1e24; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; max-height: 200px; overflow-y: auto; z-index: 1010; display: none; margin-top: 4px;">
+                                        <!-- Options populated via JS -->
+                                    </div>
+                                    <input type="hidden" id="admin-calendar-selected-teacher-username" value="">
+                                </div>
+                            </div>
                             <button id="admin-add-event-btn" class="btn btn-primary" style="padding: 0.6rem 1.25rem; font-size: 0.85rem; border-radius: 8px;">➕ Add Event</button>
                         </div>
                         <p class="section-desc">Manage academic events, meetings, and holidays. Click on a day grid to add an event, or click an existing event to edit/delete it.</p>
@@ -715,6 +726,7 @@
                                         <!-- Will be dynamically populated -->
                                     </select>
                                 </div>
+
                                 <div class="calendar-filter">
                                     <select id="admin-calendar-filter-select" style="padding: 0.5rem 1rem; background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.1); color: #fff; border-radius: 6px; outline: none; font-size: 0.9rem; cursor: pointer;">
                                         <option value="meetings">Meetings</option>
@@ -927,14 +939,6 @@
             </div>
             <form id="admin-timetable-form">
                 <input type="hidden" id="timetable-selected-day" value="">
-                <div class="form-group" style="margin-bottom: 1rem; position: relative;">
-                    <label style="display: block; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; color: var(--text-muted);">Teacher / User</label>
-                    <input type="text" id="timetable-teacher-search-input" autocomplete="off" placeholder="Search by name or employee ID..." style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 10px 14px; border-radius: 8px; font-family: var(--font-main);">
-                    <div id="timetable-teacher-dropdown-list" style="position: absolute; left: 0; right: 0; top: 100%; background: #1e1e24; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; max-height: 200px; overflow-y: auto; z-index: 1010; display: none; margin-top: 4px;">
-                        <!-- Options populated via JS -->
-                    </div>
-                    <input type="hidden" id="timetable-teacher-select" value="">
-                </div>
                 <div class="form-group" style="margin-bottom: 1rem; display: flex; gap: 15px;">
                     <div style="flex: 1;">
                         <label style="display: block; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; color: var(--text-muted);">Start Time</label>
