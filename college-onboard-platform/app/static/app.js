@@ -167,6 +167,9 @@ async function authenticate(username, password) {
             roleBadge.innerText = 'Candidate / Teacher';
             roleBadge.className = 'badge badge-info';
             announcementsSidebar.classList.remove('hidden');
+            // Eagerly load bank details so the form is scoped to this user immediately
+            loadBankDetails();
+            loadSalaryHistory();
             // Trigger default tab
             switchTab('candidate-profile');
         } else if (role === 'hr') {
@@ -217,6 +220,15 @@ logoutBtn.addEventListener('click', () => {
     usernameInput.value = '';
     passwordInput.value = '';
     clearInterval(pollInterval);
+
+    // Clear bank details form to prevent data leakage to the next user
+    const bankNameEl = document.getElementById('bank-account-name');
+    const bankNumberEl = document.getElementById('bank-account-number');
+    const bankIfscEl = document.getElementById('bank-ifsc');
+    if (bankNameEl) bankNameEl.value = '';
+    if (bankNumberEl) bankNumberEl.value = '';
+    if (bankIfscEl) bankIfscEl.value = '';
+    toggleBankInputs(false);
 
     // Clear chatbot history
     const fsChatBody = document.getElementById('fullscreen-chat-body');
