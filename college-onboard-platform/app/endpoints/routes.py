@@ -25,6 +25,7 @@ def clean_and_capitalize_name(name: str) -> str:
 
 class ChatRequest(BaseModel):
     message: str
+    username: Optional[str] = None
 
 class ActionRequest(BaseModel):
     action: str  # e.g., "approve_interview", "upload_documents", "schedule", "allotment", "provision"
@@ -352,6 +353,50 @@ def generate_ai_holiday_brief(holiday_name: str) -> str:
     return f"Public Holiday: celebration of {holiday_name}."
 
 
+def generate_ai_event_brief(title: str, description: str) -> dict:
+    """Generates a professional, engaging title and brief description for an event using Groq API."""
+    import os
+    import requests
+    import json
+    
+    default_res = {"ai_title": title, "ai_brief": description or "No additional details provided."}
+    groq_key = os.getenv("GROQ_API_KEY", "").strip()
+    if not groq_key or groq_key == "your_groq_api_key_here":
+        return default_res
+        
+    try:
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {groq_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "llama-3.1-8b-instant",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": f"Given the event title '{title}' and description '{description}', generate a short, professional alternative title (under 5 words) and a direct one-sentence description/brief info (under 15 words) in JSON format with keys 'ai_title' and 'ai_brief'."
+                }
+            ],
+            "response_format": {"type": "json_object"},
+            "temperature": 0.7,
+            "max_tokens": 100
+        }
+        res = requests.post(url, headers=headers, json=payload, timeout=10)
+        if res.status_code == 200:
+            data = res.json()
+            content = data["choices"][0]["message"]["content"].strip()
+            parsed = json.loads(content)
+            if "ai_title" in parsed and "ai_brief" in parsed:
+                return {
+                    "ai_title": parsed["ai_title"].strip().replace('"', ''),
+                    "ai_brief": parsed["ai_brief"].strip().replace('"', '')
+                }
+    except Exception as e:
+        print(f"[Groq Event Brief Error] {e}")
+    return default_res
+
+
 def run_scheduler_agent_brief(state: dict, username: str) -> str:
     """Checks upcoming meetings (within 3 days) and public holidays (only today), and salary status."""
     import datetime
@@ -360,9 +405,11 @@ def run_scheduler_agent_brief(state: dict, username: str) -> str:
     today_str = today.strftime("%Y-%m-%d")
     upcoming_meetings = []
     
-    # Ensure cache exists
+    # Ensure caches exist
     if "holiday_briefs_cache" not in state:
         state["holiday_briefs_cache"] = {}
+    if "event_briefs_cache" not in state:
+        state["event_briefs_cache"] = {}
         
     # Helper to calculate delta and format message for meetings (3 days prior)
     def get_meeting_message(title: str, date_str: str, description: str = "") -> Optional[str]:
@@ -382,15 +429,39 @@ def run_scheduler_agent_brief(state: dict, username: str) -> str:
         return None
 
     # Check standard meetings
-    meetings = state.get("meetings", [])
+    meetings = get_calendar_meetings()
     for m in meetings:
         m_date = m.get("event_date") or m.get("date")
         if m_date:
-            title = m.get("title")
-            desc = m.get("description") or m.get("notes") or ""
-            msg = get_meeting_message(title, m_date, desc)
-            if msg:
-                upcoming_meetings.append(msg)
+            try:
+                event_date = datetime.datetime.strptime(m_date, "%Y-%m-%d").date()
+                delta = (event_date - today).days
+                if 0 <= delta <= 3:
+                    title = m.get("title")
+                    desc = m.get("description") or m.get("notes") or ""
+                    
+                    # Fetch from Groq or Cache
+                    cache_key = m.get("id") or f"{m_date}:{title}"
+                    if cache_key in state["event_briefs_cache"]:
+                        cached = state["event_briefs_cache"][cache_key]
+                        ai_title = cached.get("ai_title", title)
+                        ai_brief = cached.get("ai_brief", desc)
+                    else:
+                        cached = generate_ai_event_brief(title, desc)
+                        state["event_briefs_cache"][cache_key] = cached
+                        ai_title = cached.get("ai_title", title)
+                        ai_brief = cached.get("ai_brief", desc)
+                        
+                    m_time = m.get("event_time") or m.get("time") or ""
+                    time_str = f" at {m_time}" if m_time else ""
+                    if delta == 0:
+                        upcoming_meetings.append(f"• {ai_title} is today{time_str}! (Brief Info: {ai_brief})")
+                    elif delta == 1:
+                        upcoming_meetings.append(f"• {ai_title} upcoming in 1 day{time_str} (Brief Info: {ai_brief})")
+                    else:
+                        upcoming_meetings.append(f"• {ai_title} upcoming in {delta} days{time_str} (Brief Info: {ai_brief})")
+            except Exception:
+                pass
             
     # Check holidays/events (ONLY on the day itself, with AI summary cached for the day)
     holidays = state.get("holidays", [])
@@ -415,15 +486,33 @@ def run_scheduler_agent_brief(state: dict, username: str) -> str:
     # 2. Salary status check (mock status)
     salary_msg = "💰 Salary for the month has been credited."
     
-    # Construct brief
-    brief_parts = [salary_msg]
-    if upcoming_meetings:
-        brief_parts.append("\n📅 **Upcoming Meetings & Events (Next 3 Days):**")
-        brief_parts.extend(upcoming_meetings)
-    else:
-        brief_parts.append("\n📅 No upcoming meetings or events in the next 3 days.")
+    # 2. Extract teacher profile details for caching and custom briefing
+    teacher_name = ""
+    department = ""
+    designation = ""
+    t_data = {}
+    if state and "teachers" in state and username in state["teachers"]:
+        t_data = state["teachers"][username]
+        teacher_name = t_data.get("name") or username or ""
+        department = t_data.get("department") or ""
+        designation = t_data.get("designation") or ""
+
+    # 3. Salary status check (mock status, 24-hour limit check)
+    from app.core.agent import get_salary_status_message
+    salary_msg = get_salary_status_message(t_data)
         
-    return "\n".join(brief_parts)
+    # 4. Generate dynamic briefing using AI
+    from app.core.agent import get_or_generate_companion_brief
+    pesu_companion_brief, was_new, updated_meta = get_or_generate_companion_brief(
+        teacher_data=t_data,
+        salary_msg=salary_msg,
+        upcoming_meetings=upcoming_meetings,
+        today_str=today_str
+    )
+    if was_new and t_data:
+        t_data.update(updated_meta)
+        
+    return pesu_companion_brief
 
 
 @router.post("/api/leaves/apply")
@@ -732,6 +821,25 @@ async def chatbot_endpoint(req: ChatRequest):
             pinecone_service = PineconeRAGService()
             rules_context = pinecone_service.query_rules(refined_query)
             
+            # Load user specific context/leave data
+            user_leave_context = ""
+            if req.username:
+                try:
+                    from app.core.local_storage import LocalStateStore
+                    store = LocalStateStore()
+                    state = store.load_state()
+                    if state and "teachers" in state and req.username in state["teachers"]:
+                        t_data = state["teachers"][req.username]
+                        leave_bal = t_data.get("leave_balance", 30)
+                        user_leave_context = (
+                            f"\nCandidate/Teacher Profile Leave Data:\n"
+                            f"- User: {t_data.get('name', req.username)}\n"
+                            f"- Leave Balance: {leave_bal} days remaining\n"
+                            f"- Sick day and Casual day leaves are both deducted from this general leave balance. So the user has {leave_bal} sick/casual days left.\n"
+                        )
+                except Exception as e:
+                    print(f"[Chatbot State Warning] {e}")
+            
             # 3. Call Gemini model using API Key
             from dotenv import load_dotenv
             load_dotenv(override=True)
@@ -748,7 +856,7 @@ async def chatbot_endpoint(req: ChatRequest):
                 f"Your answer must be direct, concise, and specifically address only what the user is asking. Do not summarize or list unrelated parts. For specific questions (e.g., 'what is the casual leave entitlement?'), provide a direct, concise answer (e.g., 'The casual leave entitlement is 12 days per year') without unnecessary lists, headers, or details.\n"
                 f"When formatting larger or multi-part responses, make sure they are well-aligned and readable using proper spacing, newlines, bold text, or clean bullet points where appropriate.\n"
                 f"Make sure to use relevant emojis where appropriate to make it engaging and friendly.\n\n"
-                f"Context:\n{rules_context}\n\n"
+                f"Context:\n{rules_context}\n{user_leave_context}\n\n"
                 f"User Query: {clean_input}\n\n"
                 f"Response:"
             )
@@ -1652,7 +1760,7 @@ def get_calendar_meetings() -> List[dict]:
         try:
             client = create_client(supabase_url, supabase_key)
             res = client.table("meetings").select("id, title, description, event_date, event_time, departments, department").execute()
-            if res.data:
+            if res.data is not None:
                 for m in res.data:
                     m["date"] = m.get("event_date")
                     m["time"] = m.get("event_time")
@@ -1733,7 +1841,9 @@ def add_calendar_meeting(meeting: MeetingSchema) -> dict:
     if supabase_url and supabase_key:
         try:
             client = create_client(supabase_url, supabase_key)
-            res = client.table("meetings").insert(meeting_dict).execute()
+            # Remove backward compatibility keys not in Supabase schema
+            supabase_payload = {k: v for k, v in meeting_dict.items() if k not in ["date", "time", "type"]}
+            res = client.table("meetings").insert(supabase_payload).execute()
             if res.data:
                 return {"status": "success", "event": res.data[0]}
         except Exception as e:
@@ -1741,8 +1851,7 @@ def add_calendar_meeting(meeting: MeetingSchema) -> dict:
             
     # Fallback to local state
     if "meetings" not in state:
-        get_calendar_meetings()
-        state = store.load_state()
+        state["meetings"] = get_calendar_meetings()
         
     state["meetings"].append(meeting_dict)
     store.save_state(state)
@@ -1780,7 +1889,9 @@ def update_calendar_meeting(id: str, meeting: MeetingSchema) -> dict:
     if supabase_url and supabase_key:
         try:
             client = create_client(supabase_url, supabase_key)
-            res = client.table("meetings").update(meeting_dict).eq("id", id).execute()
+            # Remove backward compatibility keys not in Supabase schema
+            supabase_payload = {k: v for k, v in meeting_dict.items() if k not in ["date", "time", "type"]}
+            res = client.table("meetings").update(supabase_payload).eq("id", id).execute()
             if res.data:
                 return {"status": "success", "event": res.data[0]}
         except Exception as e:
@@ -1788,8 +1899,7 @@ def update_calendar_meeting(id: str, meeting: MeetingSchema) -> dict:
             
     # Fallback to local state
     if "meetings" not in state:
-        get_calendar_meetings()
-        state = store.load_state()
+        state["meetings"] = get_calendar_meetings()
         
     for i, m in enumerate(state["meetings"]):
         if str(m.get("id")) == str(id):
@@ -1849,7 +1959,7 @@ def get_calendar_timetable() -> List[dict]:
         try:
             client = create_client(supabase_url, supabase_key)
             res = client.table("timetable_classes").select("id, subject_name, time_slot, classroom, day_of_week").execute()
-            if res.data:
+            if res.data is not None:
                 for c in res.data:
                     c["subject"] = c.get("subject_name")
                     c["time"] = c.get("time_slot")
@@ -1915,7 +2025,9 @@ def add_timetable_class(t_class: TimetableClassSchema) -> dict:
     if supabase_url and supabase_key:
         try:
             client = create_client(supabase_url, supabase_key)
-            res = client.table("timetable_classes").insert(t_dict).execute()
+            # Remove backward compatibility keys not in Supabase schema
+            supabase_payload = {k: v for k, v in t_dict.items() if k not in ["subject", "time", "class_", "day"]}
+            res = client.table("timetable_classes").insert(supabase_payload).execute()
             if res.data:
                 update_legacy_teacher_schedule(state, store)
                 return {"status": "success", "class": res.data[0]}
@@ -1924,8 +2036,7 @@ def add_timetable_class(t_class: TimetableClassSchema) -> dict:
             
     # Fallback to local state
     if "timetable_classes" not in state:
-        get_calendar_timetable()
-        state = store.load_state()
+        state["timetable_classes"] = get_calendar_timetable()
         
     state["timetable_classes"].append(t_dict)
     store.save_state(state)
@@ -1960,7 +2071,9 @@ def update_timetable_class(id: str, t_class: TimetableClassSchema) -> dict:
     if supabase_url and supabase_key:
         try:
             client = create_client(supabase_url, supabase_key)
-            res = client.table("timetable_classes").update(t_dict).eq("id", id).execute()
+            # Remove backward compatibility keys not in Supabase schema
+            supabase_payload = {k: v for k, v in t_dict.items() if k not in ["subject", "time", "class_", "day"]}
+            res = client.table("timetable_classes").update(supabase_payload).eq("id", id).execute()
             if res.data:
                 update_legacy_teacher_schedule(state, store)
                 return {"status": "success", "class": res.data[0]}
@@ -1969,8 +2082,7 @@ def update_timetable_class(id: str, t_class: TimetableClassSchema) -> dict:
             
     # Fallback to local state
     if "timetable_classes" not in state:
-        get_calendar_timetable()
-        state = store.load_state()
+        state["timetable_classes"] = get_calendar_timetable()
         
     for i, c in enumerate(state["timetable_classes"]):
         if str(c.get("id")) == str(id):
@@ -2104,3 +2216,73 @@ def write_log(agent: str, message: str):
         pass
 
 
+class BankDetails(BaseModel):
+    account_name: str
+    account_number: str
+    ifsc_code: str
+    bank_name: str
+
+@router.get("/api/teacher/{username}/bank")
+def get_bank_details(username: str) -> dict:
+    store = LocalStateStore()
+    state = store.load_state()
+    if not state or "teachers" not in state or username not in state["teachers"]:
+        raise HTTPException(status_code=404, detail="Teacher not found.")
+    
+    teacher_data = state["teachers"][username]
+    bank_details = teacher_data.get("bank_details", {})
+    return {"status": "success", "bank_details": bank_details}
+
+@router.post("/api/teacher/{username}/bank")
+def update_bank_details(username: str, data: BankDetails) -> dict:
+    store = LocalStateStore()
+    state = store.load_state()
+    if not state or "teachers" not in state or username not in state["teachers"]:
+        raise HTTPException(status_code=404, detail="Teacher not found.")
+    
+    state["teachers"][username]["bank_details"] = data.dict()
+    store.save_state(state)
+    return {"status": "success", "message": "Bank details updated"}
+
+@router.get("/api/teacher/{username}/salary")
+def get_salary_history(username: str) -> dict:
+    store = LocalStateStore()
+    state = store.load_state()
+    if not state or "teachers" not in state or username not in state["teachers"]:
+        raise HTTPException(status_code=404, detail="Teacher not found.")
+    
+    teacher_data = state["teachers"][username]
+    history = teacher_data.get("salary_history", [])
+    
+    return {"status": "success", "history": history}
+
+class SalaryPushReq(BaseModel):
+    username: str
+    amount: str
+    month: str
+
+@router.post("/api/hr/salary/push")
+def push_salary(data: SalaryPushReq) -> dict:
+    store = LocalStateStore()
+    state = store.load_state()
+    if not state or "teachers" not in state or data.username not in state["teachers"]:
+        raise HTTPException(status_code=404, detail="Teacher not found.")
+        
+    teacher_data = state["teachers"][data.username]
+    if "salary_history" not in teacher_data:
+        teacher_data["salary_history"] = []
+        
+    import datetime
+    import secrets
+    record = {
+        "month": data.month,
+        "amount": data.amount,
+        "transaction_id": f"TXN-{secrets.token_hex(4).upper()}",
+        "status": "Credited",
+        "credited_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
+    }
+    
+    # Prepend to history
+    teacher_data["salary_history"].insert(0, record)
+    store.save_state(state)
+    return {"status": "success", "record": record}
