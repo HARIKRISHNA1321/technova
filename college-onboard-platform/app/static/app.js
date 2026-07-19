@@ -4216,74 +4216,99 @@ async function loadHrSalaryList() {
         const PER_DAY_WAGE = 3400;
 
         for (const [username, details] of Object.entries(data.teachers)) {
-            // Apply search filter if there's a search term
+            // Apply search filter
             const searchInput = document.getElementById('hr-salary-search');
             const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
             const tName = (details.name || '').toLowerCase();
             const tId = (details.emp_id || username).toLowerCase();
-            
-            if (searchTerm && !tName.includes(searchTerm) && !tId.includes(searchTerm)) {
-                continue;
-            }
+            if (searchTerm && !tName.includes(searchTerm) && !tId.includes(searchTerm)) continue;
 
+            // Calculate present/absent from actual attendance records for this month
             let absentThisMonth = 0;
-            if (details.attendance) {
-                absentThisMonth = details.attendance.filter(a => a.date.startsWith(currentMonth)).length;
-            }
-            const presentDays = details.present_days !== undefined ? details.present_days : 24;
+            let presentThisMonth = 0;
+            (details.attendance || []).forEach(a => {
+                if (a.date && a.date.startsWith(currentMonth)) {
+                    if (a.status === 'Present') presentThisMonth++;
+                    else if (a.status === 'Absent') absentThisMonth++;
+                }
+            });
+            // Fallback to stored field if no current-month attendance entries yet
+            const presentDays = presentThisMonth > 0
+                ? presentThisMonth
+                : (details.present_days !== undefined ? details.present_days : BASE_WORKING_DAYS - absentThisMonth);
             const netSalary = presentDays * PER_DAY_WAGE;
-            
+
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td>${details.name}</td>
+                <td>${details.name || username}</td>
                 <td>${details.emp_id || username}</td>
-                <td style="color: #f85149;">${absentThisMonth}</td>
-                <td style="color: #3fb950;">${presentDays}</td>
+                <td style="color: #f85149; font-weight: 600;">${absentThisMonth}</td>
+                <td style="color: #3fb950; font-weight: 600;">${presentDays}</td>
                 <td style="font-weight: 500;">₹ ${netSalary.toLocaleString()}</td>
-                <td>
-                    <button class="btn btn-sm btn-primary push-salary-btn" data-username="${username}" data-salary="${netSalary}">Push Salary</button>
+                <td style="text-align: center;">
+                    <input type="checkbox" class="salary-select-cb"
+                        data-username="${username}"
+                        data-salary="${netSalary}"
+                        style="width: 16px; height: 16px; accent-color: #58a6ff; cursor: pointer;">
                 </td>
             `;
             tbody.appendChild(tr);
         }
-        
-        document.querySelectorAll('.push-salary-btn').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                const targetUsername = e.target.dataset.username;
-                const salary = e.target.dataset.salary;
-                e.target.disabled = true;
-                e.target.innerText = 'Pushing...';
-                
-                try {
-                    const monthStr = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
-                    const payload = {
-                        username: targetUsername,
-                        amount: `₹ ${parseInt(salary).toLocaleString()}`,
-                        month: monthStr
-                    };
-                    
-                    const res = await fetch('/api/hr/salary/push', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    
-                    if (res.ok) {
-                        e.target.innerText = 'Pushed';
-                        e.target.classList.remove('btn-primary');
-                        e.target.classList.add('btn-secondary');
-                    } else {
-                        alert('Failed to push salary');
-                        e.target.disabled = false;
-                        e.target.innerText = 'Push Salary';
-                    }
-                } catch(err) {
-                    console.error(err);
-                    e.target.disabled = false;
-                    e.target.innerText = 'Push Salary';
-                }
+
+        // Select All toggle
+        const selectAllCb = document.getElementById('salary-select-all');
+        if (selectAllCb) {
+            const newCb = selectAllCb.cloneNode(true); // remove old listeners
+            selectAllCb.parentNode.replaceChild(newCb, selectAllCb);
+            newCb.checked = false;
+            newCb.addEventListener('change', (e) => {
+                document.querySelectorAll('.salary-select-cb').forEach(cb => cb.checked = e.target.checked);
             });
-        });
+        }
+
+        // Bulk Push Salary button
+        const bulkBtn = document.getElementById('bulk-push-salary-btn');
+        if (bulkBtn) {
+            const newBtn = bulkBtn.cloneNode(true); // remove old listeners
+            bulkBtn.parentNode.replaceChild(newBtn, bulkBtn);
+            newBtn.addEventListener('click', async () => {
+                const selected = [...document.querySelectorAll('.salary-select-cb:checked')];
+                if (selected.length === 0) {
+                    alert('Please select at least one teacher to push salary.');
+                    return;
+                }
+                newBtn.disabled = true;
+                newBtn.innerText = `Pushing (0/${selected.length})...`;
+                const monthStr = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+
+                let pushed = 0;
+                for (const cb of selected) {
+                    const targetUsername = cb.dataset.username;
+                    const salary = cb.dataset.salary;
+                    try {
+                        await fetch('/api/hr/salary/push', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                username: targetUsername,
+                                amount: `₹ ${parseInt(salary).toLocaleString()}`,
+                                month: monthStr
+                            })
+                        });
+                        pushed++;
+                        newBtn.innerText = `Pushing (${pushed}/${selected.length})...`;
+                    } catch (err) {
+                        console.error(`Failed to push salary for ${targetUsername}`, err);
+                    }
+                }
+
+                newBtn.disabled = false;
+                newBtn.innerText = 'Push Salary';
+                const selectAll = document.getElementById('salary-select-all');
+                if (selectAll) selectAll.checked = false;
+                await loadHrSalaryList();
+            });
+        }
 
     } catch (e) {
         console.error("Failed to load HR salary list", e);

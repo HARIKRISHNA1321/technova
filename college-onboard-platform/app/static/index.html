@@ -653,10 +653,17 @@
                         <h2>Salary Management</h2>
                         <p class="section-desc">Disburse salaries based on teacher attendance</p>
                         
-                        <div class="form-group mt-3" style="max-width: 400px; margin-bottom: 15px;">
+                        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 15px;">
                             <input type="text" id="hr-salary-search" class="form-control"
                                 placeholder="Search by Teacher Name or ID..."
-                                style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 10px 14px; border-radius: 8px; width: 100%;">
+                                style="flex: 1; min-width: 220px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 10px 14px; border-radius: 8px;">
+                            <div style="display: flex; align-items: center; gap: 10px; white-space: nowrap;">
+                                <label style="display: flex; align-items: center; gap: 6px; color: #c9d1d9; font-size: 0.9rem; cursor: pointer; margin: 0;">
+                                    <input type="checkbox" id="salary-select-all" style="width: 16px; height: 16px; accent-color: #58a6ff;">
+                                    Select All
+                                </label>
+                                <button id="bulk-push-salary-btn" class="btn btn-primary" style="padding: 8px 18px;">Push Salary</button>
+                            </div>
                         </div>
 
                         <div class="attendance-table-wrapper mt-4">
@@ -668,7 +675,7 @@
                                         <th>Absent Days</th>
                                         <th>Present Days</th>
                                         <th>Net Salary</th>
-                                        <th>Action</th>
+                                        <th style="text-align: center;">Select</th>
                                     </tr>
                                 </thead>
                                 <tbody id="hr-salary-list-body">
