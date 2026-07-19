@@ -276,6 +276,11 @@ document.querySelectorAll('.nav-tab').forEach(tab => {
                 }
             }
         }
+
+        if (targetTab === 'candidate-documents') {
+            localStorage.setItem(`has_clicked_docs_alert_${currentUser}`, 'true');
+            btn.classList.remove('blinking-alert');
+        }
     });
 });
 
@@ -470,6 +475,18 @@ function updateDashboardView() {
                     statusContainer.style.border = '1px solid rgba(210, 153, 34, 0.3)';
                     statusContainer.style.background = 'rgba(210, 153, 34, 0.02)';
                 }
+            }
+        }
+
+        // Add blink effect to Submit Documents tab if upload is pending
+        const docTab = document.querySelector('.nav-tab[data-tab="candidate-documents"]');
+        if (docTab) {
+            const hasClickedDocs = localStorage.getItem(`has_clicked_docs_alert_${currentUser}`) === 'true';
+            const msg = teacher.onboarding_status_message || '';
+            if (!hasClickedDocs && msg.toLowerCase().includes('upload documents')) {
+                docTab.classList.add('blinking-alert');
+            } else {
+                docTab.classList.remove('blinking-alert');
             }
         }
 
