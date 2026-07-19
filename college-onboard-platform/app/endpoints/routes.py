@@ -663,11 +663,16 @@ async def get_state() -> dict:
             path = teacher.get("document_paths", {}).get(doc_type, "")
             if path:
                 filename = path.split("/")[-1]
+                old_status = teacher["document_statuses"].get(doc_type)
                 if filename in verified:
-                    teacher["document_statuses"][doc_type] = "approved"
-                elif teacher["document_statuses"][doc_type] not in ["approved", "rejected"]:
-                    teacher["document_statuses"][doc_type] = "pending"
-                modified = True
+                    new_status = "approved"
+                elif old_status not in ["approved", "rejected"]:
+                    new_status = "pending"
+                else:
+                    new_status = old_status
+                if new_status != old_status:
+                    teacher["document_statuses"][doc_type] = new_status
+                    modified = True
 
     if modified:
         store.save_state(state)
@@ -1301,6 +1306,13 @@ def trigger_action(req: ActionRequest, background_tasks: BackgroundTasks) -> dic
         }
         write_log("HR_AGENT", f"New teacher profile created: {username} ({name})")
         background_tasks.add_task(send_welcome_email_task, email=email, username=username, name=name, password=password)
+
+        # Re-fetch the latest state just before saving to prevent race condition where a
+        # concurrent /api/state response overwrites Supabase and erases the new teacher.
+        fresh_state = store.load_state()
+        if fresh_state and "teachers" in fresh_state:
+            fresh_state["teachers"][username] = state["teachers"][username]
+            state = fresh_state
 
     elif action == "change_password":
         username = payload.get("username")
