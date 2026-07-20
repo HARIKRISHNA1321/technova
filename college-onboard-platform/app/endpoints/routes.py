@@ -903,9 +903,11 @@ def run_scheduler_agent_brief(state: dict, username: str) -> str:
 async def apply_leave_endpoint(
     username: str = Form(...),
     leave_date: str = Form(...),
+    leave_end_date: str = Form(""),
     leave_type: str = Form(...),
     title: str = Form(...),
     description: str = Form(...),
+    num_days: int = Form(1),
     file: Optional[UploadFile] = File(None)
 ) -> dict:
     from app.app_utils.telemetry import track_memory
@@ -961,6 +963,8 @@ async def apply_leave_endpoint(
     new_leave = {
         "id": leave_id,
         "date": leave_date,
+        "end_date": leave_end_date if leave_end_date else leave_date,
+        "num_days": max(1, num_days),
         "type": leave_type,
         "title": title,
         "description": description,
@@ -970,7 +974,7 @@ async def apply_leave_endpoint(
     }
     teacher["applied_leaves"].append(new_leave)
     store.save_state(state)
-    write_log("CANDIDATE_PORTAL", f"Applied for leave: {leave_type} on {leave_date} for teacher {username} (ID: {leave_id})")
+    write_log("CANDIDATE_PORTAL", f"Applied for leave: {leave_type} on {leave_date} for {num_days} day(s) for teacher {username} (ID: {leave_id})")
     return {"status": "success", "leave_id": leave_id}
 
 

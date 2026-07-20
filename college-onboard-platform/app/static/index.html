@@ -243,13 +243,19 @@
                         <div class="project-upload-section" style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 20px; margin-bottom: 25px;">
                             <form id="leave-application-form" style="display: flex; flex-direction: column; gap: 15px;">
                                 <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-                                    <div style="display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 200px;">
-                                        <label for="leave-date-input" style="font-size: 0.85rem; color: #8b949e;">Leave Date</label>
+                                    <div style="display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 180px;">
+                                        <label for="leave-date-input" style="font-size: 0.85rem; color: #8b949e;">Start Date</label>
                                         <input type="date" id="leave-date-input" required
                                             style="background: #0d1117; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; padding: 10px; color: #ffffff; color-scheme: dark; font-size: 0.9rem; outline: none; box-sizing: border-box; width: 100%;">
                                     </div>
+
+                                    <div style="display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 180px;">
+                                        <label for="leave-end-date-display" style="font-size: 0.85rem; color: #8b949e;">End Date <span style="font-size:0.75rem; color: #58a6ff;">(auto)</span></label>
+                                        <input type="date" id="leave-end-date-display" readonly
+                                            style="background: #0d1117; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 6px; padding: 10px; color: #8b949e; color-scheme: dark; font-size: 0.9rem; outline: none; box-sizing: border-box; width: 100%; cursor: default; opacity: 0.7;">
+                                    </div>
                                     
-                                    <div style="display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 200px;">
+                                    <div style="display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 180px;">
                                         <label for="leave-type-select" style="font-size: 0.85rem; color: #8b949e;">Type of Leave</label>
                                         <select id="leave-type-select" required
                                             style="background: #0d1117; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; padding: 10px; color: #c9d1d9; font-size: 0.9rem; outline: none; box-sizing: border-box; width: 100%; cursor: pointer;">
@@ -263,6 +269,14 @@
                                             <option value="Bereavement Leave">Bereavement Leave</option>
                                             <option value="Relocation Transfer Leave">Relocation Transfer Leave</option>
                                         </select>
+                                    </div>
+
+                                    <div style="display: flex; flex-direction: column; gap: 6px; flex: 0 0 130px; min-width: 110px;">
+                                        <label for="leave-days-input" style="font-size: 0.85rem; color: #8b949e;">Number of Days</label>
+                                        <input type="number" id="leave-days-input" value="1" min="1" max="365" step="1"
+                                            style="background: #0d1117; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; padding: 10px; color: #ffffff; font-size: 0.9rem; outline: none; box-sizing: border-box; width: 100%; text-align: center; -moz-appearance: textfield;"
+                                            onkeydown="if(event.key==='ArrowUp'){this.value=Math.min(365,parseInt(this.value||1)+1);event.preventDefault();}if(event.key==='ArrowDown'){this.value=Math.max(1,parseInt(this.value||1)-1);event.preventDefault();}"
+                                            oninput="if(parseInt(this.value)<1||isNaN(parseInt(this.value)))this.value=1;">
                                     </div>
                                 </div>
                                 <div style="display: flex; flex-direction: column; gap: 6px;">

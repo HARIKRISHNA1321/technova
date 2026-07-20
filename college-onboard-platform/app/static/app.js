@@ -2733,6 +2733,31 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+    // Auto-compute end date when start date or num_days changes
+    function updateLeaveEndDate() {
+        const startInput = document.getElementById('leave-date-input');
+        const daysInput = document.getElementById('leave-days-input');
+        const endDisplay = document.getElementById('leave-end-date-display');
+        if (!startInput || !endDisplay) return;
+        if (!startInput.value) { endDisplay.value = ''; return; }
+        const numDays = parseInt(daysInput?.value) >= 1 ? parseInt(daysInput.value) : 1;
+        // Use UTC parsing to avoid timezone-shift issues
+        const [y, m, d] = startInput.value.split('-').map(Number);
+        const end = new Date(Date.UTC(y, m - 1, d + numDays - 1));
+        const yyyy = end.getUTCFullYear();
+        const mm = String(end.getUTCMonth() + 1).padStart(2, '0');
+        const dd = String(end.getUTCDate()).padStart(2, '0');
+        endDisplay.value = `${yyyy}-${mm}-${dd}`;
+    }
+
+    const leaveDateInput = document.getElementById('leave-date-input');
+    const leaveDaysInput = document.getElementById('leave-days-input');
+    if (leaveDateInput) leaveDateInput.addEventListener('change', updateLeaveEndDate);
+    if (leaveDaysInput) {
+        leaveDaysInput.addEventListener('input', updateLeaveEndDate);
+        leaveDaysInput.addEventListener('change', updateLeaveEndDate);
+    }
+
     const leaveApplicationForm = document.getElementById('leave-application-form');
     if (leaveApplicationForm) {
         leaveApplicationForm.addEventListener('submit', async (e) => {
@@ -2740,18 +2765,25 @@ document.addEventListener('DOMContentLoaded', () => {
             const dateInput = document.getElementById('leave-date-input');
             const typeSelect = document.getElementById('leave-type-select');
             const descInput = document.getElementById('leave-desc-input');
+            const daysInput = document.getElementById('leave-days-input');
+            const endDateDisplay = document.getElementById('leave-end-date-display');
             
             if (!dateInput || !typeSelect || !dateInput.value || !typeSelect.value || !descInput || !descInput.value) {
                 alert('Please fill out all required fields.');
                 return;
             }
             
+            const numDays = parseInt(daysInput?.value) >= 1 ? parseInt(daysInput.value) : 1;
+            const leaveEndDate = endDateDisplay?.value || dateInput.value;
+            
             const formData = new FormData();
             formData.append('username', currentUser);
             formData.append('leave_date', dateInput.value);
+            formData.append('leave_end_date', leaveEndDate);
             formData.append('leave_type', typeSelect.value);
             formData.append('title', typeSelect.value);
             formData.append('description', descInput.value.trim());
+            formData.append('num_days', numDays);
             if (leaveFileInput && leaveFileInput.files && leaveFileInput.files.length > 0) {
                 formData.append('file', leaveFileInput.files[0]);
             }
@@ -2774,6 +2806,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     dateInput.value = '';
                     typeSelect.value = '';
                     descInput.value = '';
+                    if (daysInput) daysInput.value = '1';
+                    if (endDateDisplay) endDateDisplay.value = '';
                     if (leaveFileInput) leaveFileInput.value = '';
                     if (leaveFileName) leaveFileName.innerText = 'No file selected';
                     syncStateData();
