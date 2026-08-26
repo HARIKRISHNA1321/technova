@@ -802,31 +802,7 @@
                     <div id="tab-hr-attendance-manager" class="tab-pane hidden">
                         <h2>Attendance Manager</h2>
                         <p class="section-desc">Manage faculty working days and review, accept, or reject leave requests</p>
-                                                <!-- Excel Attendance Upload Panel -->
-                        <div class="project-upload-section mt-3 mb-4" style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 20px;">
-                            <h3 style="font-size: 1.1rem; margin-top: 0; margin-bottom: 15px; color: #58a6ff; display: flex; align-items: center; gap: 8px;">
-                                <span>📊</span> Upload Daily Attendance Sheet (Excel)
-                            </h3>
-                            <p style="font-size: 0.85rem; color: #8b949e; margin: 0 0 15px 0; line-height: 1.5;">
-                                Upload the daily <strong style="color:#c9d1d9;">.xlsx</strong> file listing teachers who are <strong style="color:#56d364;">PRESENT</strong> today. Teachers not found will be automatically marked Absent (Loss of Pay or Regular Leave if applicable).
-                            </p>
-                            <form id="hr-excel-upload-form" style="display: flex; flex-direction: column; gap: 15px; width: 100%;">
-                                <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end;">
-                                    <div style="display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 200px;">
-                                        <label for="hr-excel-date" style="font-size: 0.85rem; color: #8b949e; font-weight: 500;">Attendance Date</label>
-                                        <input type="date" id="hr-excel-date" required
-                                            style="background: #0d1117; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; padding: 10px; color: #c9d1d9; color-scheme: dark; font-size: 0.9rem; outline: none; box-sizing: border-box; width: 100%;">
-                                    </div>
-                                    <div style="display: flex; flex-direction: column; gap: 6px; flex: 2; min-width: 250px;">
-                                        <label for="hr-excel-file" style="font-size: 0.85rem; color: #8b949e; font-weight: 500;">Attendance Excel File (.xlsx only)</label>
-                                        <input type="file" id="hr-excel-file" accept=".xlsx" required
-                                            style="background: #0d1117; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; padding: 8px; color: #c9d1d9; font-size: 0.9rem; outline: none; box-sizing: border-box; width: 100%;">
-                                    </div>
-                                    <button type="submit" class="btn btn-primary" style="height: 42px; padding: 0 20px;">📊 Upload & Process</button>
-                                </div>
-                                <div id="hr-excel-status" style="font-size: 0.9rem; margin-top: 5px;"></div>
-                            </form>
-                        </div>
+                        
 
 
 
@@ -1240,7 +1216,6 @@
         </div>
     </div>
 
-<<<<<<< Updated upstream
     <!-- Forgot Password Modal -->
     <div id="forgot-password-modal" class="modal hidden" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); z-index: 10000; display: flex; align-items: center; justify-content: center;">
         <div class="modal-content glass-card" style="max-width: 480px; width: 90%; text-align: center; margin: auto; padding: 40px 30px;">

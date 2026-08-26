@@ -1,6 +1,6 @@
 // Global App State
-let currentUser = null;
-let currentRole = null; // 'candidate', 'hr', or 'admin'
+let currentUser = sessionStorage.getItem('currentUser') || null;
+let currentRole = sessionStorage.getItem('currentRole') || null; // 'candidate', 'hr', or 'admin'
 let systemState = null;
 let pollInterval = null;
 let editingSeating = {};
@@ -197,44 +197,8 @@ async function authenticate(username, password) {
             // Setup session
             currentUser = username;
             currentRole = role;
-
-            // Visual routing transformations
-            if (loginScreen) loginScreen.classList.add('hidden');
-            if (portalScreen) portalScreen.classList.remove('hidden');
-
-            // Render menus based on role
-            if (candidateMenu) candidateMenu.classList.add('hidden');
-            if (hrMenu) hrMenu.classList.add('hidden');
-            if (adminMenu) adminMenu.classList.add('hidden');
-
-            if (role === 'candidate') {
-                if (candidateMenu) candidateMenu.classList.remove('hidden');
-                if (roleBadge) {
-                    roleBadge.innerText = 'Candidate / Teacher';
-                    roleBadge.className = 'badge badge-info';
-                }
-                if (announcementsSidebar) announcementsSidebar.classList.remove('hidden');
-                // Eagerly load bank details so the form is scoped to this user immediately
-                loadBankDetails();
-                loadSalaryHistory();
-                switchTab('candidate-profile');
-            } else if (role === 'hr') {
-                if (hrMenu) hrMenu.classList.remove('hidden');
-                if (roleBadge) {
-                    roleBadge.innerText = 'HR Department';
-                    roleBadge.className = 'badge badge-success';
-                }
-                if (announcementsSidebar) announcementsSidebar.classList.add('hidden');
-                switchTab('hr-teachers-list');
-            } else if (role === 'admin') {
-                if (adminMenu) adminMenu.classList.remove('hidden');
-                if (roleBadge) {
-                    roleBadge.innerText = 'Chairperson / Admin';
-                    roleBadge.className = 'badge badge-danger';
-                }
-                if (announcementsSidebar) announcementsSidebar.classList.remove('hidden');
-                switchTab('admin-seating-allotment');
-            }
+            sessionStorage.setItem('currentUser', username);
+            sessionStorage.setItem('currentRole', role);
 
             // Set sidebar user details
             if (sidebarName) sidebarName.innerText = userData.name;
@@ -251,9 +215,14 @@ async function authenticate(username, password) {
             loadChatHistory();
             updateDashboardView();
 
-            // Start real-time polling
-            clearInterval(pollInterval);
-            pollInterval = setInterval(syncStateData, 3000);
+            // Redirect to target or home
+            const urlParams = new URLSearchParams(window.location.search);
+            const redirectPath = urlParams.get('redirect');
+            if (redirectPath && redirectPath.startsWith('/')) {
+                navigate(redirectPath);
+            } else {
+                navigate('/');
+            }
             console.log("[AUTHENTICATION SUCCESS] Logged in as:", role, username);
         } catch (uiErr) {
             console.error("[LOGIN UI RENDER ERROR]", uiErr);
@@ -270,11 +239,12 @@ if (logoutBtn) {
     logoutBtn.addEventListener('click', () => {
         currentUser = null;
         currentRole = null;
-        if (portalScreen) portalScreen.classList.add('hidden');
-        if (loginScreen) loginScreen.classList.remove('hidden');
+        sessionStorage.removeItem('currentUser');
+        sessionStorage.removeItem('currentRole');
         if (usernameInput) usernameInput.value = '';
         if (passwordInput) passwordInput.value = '';
         clearInterval(pollInterval);
+        pollInterval = null;
 
         // Clear bank details form to prevent data leakage to the next user
         const bankNameEl = document.getElementById('bank-account-name');
@@ -294,6 +264,8 @@ if (logoutBtn) {
         if (fsChatInput) {
             fsChatInput.value = '';
         }
+
+        navigate('/login');
     });
 }
 
@@ -313,16 +285,170 @@ async function syncStateData() {
     }
 }
 
+// Mapping of tab ids to paths and vice versa
+const tabToPath = {
+    'candidate-profile': '/candidate/profile',
+    'candidate-calendar': '/candidate/calendar',
+    'candidate-chatbot': '/candidate/chatbot',
+    'candidate-attendance': '/candidate/attendance',
+    'candidate-seating': '/candidate/seating',
+    'candidate-documents': '/candidate/documents',
+    'candidate-projects': '/candidate/projects',
+    'candidate-bank': '/candidate/bank',
+    'candidate-settings': '/candidate/settings',
+    
+    'hr-teachers-list': '/hr/teachers',
+    'hr-verification': '/hr/verification',
+    'hr-attendance-manager': '/hr/attendance',
+    'hr-salary': '/hr/salary',
+    'hr-add-teacher': '/hr/add-teacher',
+    
+    'admin-seating-allotment': '/admin/seating',
+    'admin-announcements': '/admin/announcements',
+    'admin-teachers-overview': '/admin/teachers',
+    'admin-calendar': '/admin/calendar'
+};
+
+const pathToTab = {};
+for (const [tab, path] of Object.entries(tabToPath)) {
+    pathToTab[path] = tab;
+}
+
+// Router and navigation functions
+function navigate(path, updateHistory = true) {
+    if (updateHistory) {
+        window.history.pushState({}, '', path);
+    }
+    router(path);
+}
+
+// Make globally available
+window.navigate = navigate;
+
+async function router(path = window.location.pathname) {
+    // Check session
+    currentUser = sessionStorage.getItem('currentUser') || null;
+    currentRole = sessionStorage.getItem('currentRole') || null;
+    
+    if (path === '/') {
+        if (!currentUser) {
+            navigate('/login');
+            return;
+        }
+        if (currentRole === 'candidate') navigate('/candidate/profile');
+        else if (currentRole === 'hr') navigate('/hr/teachers');
+        else if (currentRole === 'admin') navigate('/admin/seating');
+        return;
+    }
+    
+    if (path === '/login') {
+        if (currentUser) {
+            navigate('/');
+            return;
+        }
+        if (loginScreen) loginScreen.classList.remove('hidden');
+        if (portalScreen) portalScreen.classList.add('hidden');
+        return;
+    }
+    
+    const tabId = pathToTab[path];
+    if (!tabId) {
+        navigate('/');
+        return;
+    }
+    
+    if (!currentUser) {
+        navigate(`/login?redirect=${encodeURIComponent(path)}`);
+        return;
+    }
+    
+    const requiredRole = path.startsWith('/candidate') ? 'candidate' :
+                         path.startsWith('/hr') ? 'hr' :
+                         path.startsWith('/admin') ? 'admin' : null;
+                         
+    if (currentRole !== requiredRole) {
+        navigate('/');
+        return;
+    }
+    
+    if (!systemState) {
+        try {
+            const res = await fetch('/api/state?t=' + Date.now());
+            systemState = await res.json();
+        } catch (e) {
+            console.error('Error fetching state in router:', e);
+        }
+    }
+    
+    if (loginScreen) loginScreen.classList.add('hidden');
+    if (portalScreen) portalScreen.classList.remove('hidden');
+    
+    if (candidateMenu) candidateMenu.classList.add('hidden');
+    if (hrMenu) hrMenu.classList.add('hidden');
+    if (adminMenu) adminMenu.classList.add('hidden');
+    
+    if (currentRole === 'candidate') {
+        if (candidateMenu) candidateMenu.classList.remove('hidden');
+        if (roleBadge) {
+            roleBadge.innerText = 'Candidate / Teacher';
+            roleBadge.className = 'badge badge-info';
+        }
+        if (announcementsSidebar) announcementsSidebar.classList.remove('hidden');
+    } else if (currentRole === 'hr') {
+        if (hrMenu) hrMenu.classList.remove('hidden');
+        if (roleBadge) {
+            roleBadge.innerText = 'HR Department';
+            roleBadge.className = 'badge badge-success';
+        }
+        if (announcementsSidebar) announcementsSidebar.classList.add('hidden');
+    } else if (currentRole === 'admin') {
+        if (adminMenu) adminMenu.classList.remove('hidden');
+        if (roleBadge) {
+            roleBadge.innerText = 'Chairperson / Admin';
+            roleBadge.className = 'badge badge-danger';
+        }
+        if (announcementsSidebar) announcementsSidebar.classList.remove('hidden');
+    }
+    
+    if (systemState) {
+        let userData = null;
+        if (currentRole === 'admin') {
+            userData = { name: 'PES Chairperson', email: 'chairperson@pes.edu' };
+        } else if (currentRole === 'hr') {
+            userData = { name: 'HR Desk Officer', email: 'hr.onboarding@pes.edu' };
+        } else if (systemState.teachers && systemState.teachers[currentUser]) {
+            userData = systemState.teachers[currentUser];
+        }
+        
+        if (userData) {
+            if (sidebarName) sidebarName.innerText = userData.name;
+            if (sidebarEmail) sidebarEmail.innerText = userData.email;
+            if (userDisplayName) userDisplayName.innerText = userData.name;
+            
+            const chatbotHeading = document.getElementById('chatbot-heading');
+            if (chatbotHeading) {
+                chatbotHeading.innerText = `Hello ${userData.name}, how can I help you today?`;
+            }
+        }
+    }
+    
+    switchTab(tabId, false);
+    
+    if (!pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = setInterval(syncStateData, 3000);
+    }
+}
+
 // Tab switcher handler
 document.querySelectorAll('.nav-tab').forEach(tab => {
     tab.addEventListener('click', (e) => {
         const btn = e.target.closest('.nav-tab');
         if (!btn) return;
         const targetTab = btn.getAttribute('data-tab');
-        switchTab(targetTab);
-
+        
         if (targetTab === 'candidate-chatbot') {
-            const teacher = (systemState.teachers && systemState.teachers[currentUser]) ? systemState.teachers[currentUser] : null;
+            const teacher = (systemState && systemState.teachers && systemState.teachers[currentUser]) ? systemState.teachers[currentUser] : null;
             if (teacher && teacher.current_stage === 'policy_review') {
                 const hasClickedAlert = localStorage.getItem(`has_clicked_policy_alert_${currentUser}`) === 'true';
                 if (!hasClickedAlert) {
@@ -337,10 +463,20 @@ document.querySelectorAll('.nav-tab').forEach(tab => {
             localStorage.setItem(`has_clicked_docs_alert_${currentUser}`, 'true');
             btn.classList.remove('blinking-alert');
         }
+
+        switchTab(targetTab, true);
     });
 });
 
-function switchTab(tabId) {
+function switchTab(tabId, triggerNavigate = true) {
+    if (triggerNavigate) {
+        const path = tabToPath[tabId];
+        if (path) {
+            navigate(path);
+            return;
+        }
+    }
+    
     // Deactivate current tabs
     document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.add('hidden'));
@@ -357,7 +493,8 @@ function switchTab(tabId) {
     }
     if (tabId === 'candidate-chatbot') {
         setTimeout(() => {
-            fullscreenChatBody.scrollTop = fullscreenChatBody.scrollHeight;
+            const fsChatBody = document.getElementById('fullscreen-chat-body');
+            if (fsChatBody) fsChatBody.scrollTop = fsChatBody.scrollHeight;
         }, 50);
     }
     if (tabId === 'candidate-calendar') {
@@ -368,6 +505,13 @@ function switchTab(tabId) {
     }
     if (tabId === 'candidate-attendance' || tabId === 'candidate-profile') {
         syncStateData();
+    }
+    if (tabId === 'candidate-bank') {
+        loadBankDetails();
+        loadSalaryHistory();
+    }
+    if (tabId === 'hr-salary') {
+        loadHrSalaryList();
     }
 }
 
@@ -4381,24 +4525,6 @@ async function loadHrSalaryList() {
             const alreadyPushed = t.salary_pushed === true;
             totalNet += (t.net || 0);
 
-<<<<<<< Updated upstream
-        for (const [username, details] of Object.entries(data.teachers)) {
-            // Apply search filter
-            const searchInput = document.getElementById('hr-salary-search');
-            const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
-            const tName = (details.name || '').toLowerCase();
-            const tId = (details.emp_id || username).toLowerCase();
-            if (searchTerm && !tName.includes(searchTerm) && !tId.includes(searchTerm)) continue;
-
-            // Calculate present/absent from actual attendance records for this month
-            let absentThisMonth = 0;
-            let presentThisMonth = 0;
-            (details.attendance || []).forEach(a => {
-                if (a.date && a.date.startsWith(currentMonth)) {
-                    if (a.status === 'Present') presentThisMonth++;
-                    else if (a.status === 'Absent') absentThisMonth++;
-                }
-            });
             const tr = document.createElement('tr');
             tr.dataset.username   = t.username;
             tr.dataset.name       = t.name || '';
@@ -4843,3 +4969,9 @@ if (fpResetBtn) {
         }
     });
 }
+
+// Init routing
+window.addEventListener('popstate', () => {
+    router(window.location.pathname);
+});
+router(window.location.pathname);
