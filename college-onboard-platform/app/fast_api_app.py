@@ -16,7 +16,7 @@ import asyncio
 from dotenv import load_dotenv
 load_dotenv(override=True)
 import google.auth
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from google.adk.cli.fast_api import get_fast_api_app
 from google.cloud import logging as google_cloud_logging
 

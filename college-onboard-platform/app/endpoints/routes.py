@@ -979,6 +979,70 @@ async def apply_leave_endpoint(
 
 
 
+def sync_and_recompute_teacher_stats(teacher: dict, global_working_days: int, target_month: str = None) -> bool:
+    import datetime
+    modified = False
+    
+    if not target_month:
+        target_month = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m")
+        
+    # Ensure keys exist
+    teacher.setdefault("applied_leaves", [])
+    teacher.setdefault("attendance", [])
+    teacher.setdefault("present_days", 0)
+    teacher.setdefault("absent_days", 0)
+    teacher.setdefault("loss_of_pay_leaves", 0)
+    
+    # 1. Sync approved/accepted leaves to attendance
+    for lvl in teacher.get("applied_leaves", []):
+        if lvl.get("status") in ["approved", "accepted"]:
+            leave_date = lvl.get("date")
+            att_exists = any(a.get("date") == leave_date for a in teacher["attendance"])
+            if not att_exists:
+                # Add to attendance as Absent with regular leave description
+                new_att = {
+                    "date": leave_date,
+                    "status": "Absent",
+                    "reason": f"Regular Leave ({lvl.get('type', 'Leave')})" if lvl.get('type') != "Loss of Pay" else "Loss of Pay"
+                }
+                teacher["attendance"].append(new_att)
+                modified = True
+                
+                # If paid leave, decrement leave balance
+                if lvl.get('type') != "Loss of Pay":
+                    current_balance = teacher.get("leave_balance", 30)
+                    teacher["leave_balance"] = max(0, current_balance - 1)
+                    
+    # 2. Recompute Present, Absent, and LOP stats for the target month
+    attendance = teacher.get("attendance", [])
+    month_att = [a for a in attendance if str(a.get("date", "")).startswith(target_month)]
+    
+    approved_leaves = sum(
+        1 for a in month_att 
+        if a.get("status") == "Absent" and "Loss of Pay" not in str(a.get("reason", ""))
+    )
+    lop_leaves = sum(
+        1 for a in month_att 
+        if a.get("status") == "Absent" and "Loss of Pay" in str(a.get("reason", ""))
+    )
+    
+    present_days = max(0, global_working_days - approved_leaves - lop_leaves)
+    
+    if teacher.get("present_days") != present_days:
+        teacher["present_days"] = present_days
+        modified = True
+        
+    if teacher.get("absent_days") != approved_leaves:
+        teacher["absent_days"] = approved_leaves
+        modified = True
+        
+    if teacher.get("loss_of_pay_leaves") != lop_leaves:
+        teacher["loss_of_pay_leaves"] = lop_leaves
+        modified = True
+        
+    return modified
+
+
 @router.get("/api/state")
 async def get_state() -> dict:
     store = LocalStateStore()
@@ -1042,17 +1106,7 @@ async def get_state() -> dict:
             teacher["onboarding_status_message"] = "Please upload documents in document upload tab"
             modified = True
 
-        if "present_days" not in teacher:
-            p_days = sum(1 for att in teacher.get("attendance", []) if att.get("status") == "Present")
-            if p_days == 0:
-                absents = sum(1 for att in teacher.get("attendance", []) if att.get("status") == "Absent")
-                teacher["present_days"] = max(0, 26 - absents)
-            else:
-                teacher["present_days"] = p_days
-            modified = True
-
-        if "loss_of_pay_leaves" not in teacher:
-            teacher["loss_of_pay_leaves"] = sum(1 for att in teacher.get("attendance", []) if att.get("status") == "Absent" and att.get("reason") == "Loss of Pay")
+        if sync_and_recompute_teacher_stats(teacher, computed_wd):
             modified = True
 
         verified = teacher.get("verified_documents", [])
@@ -2220,11 +2274,11 @@ async def get_working_days_for_current_month() -> int:
     _, num_days = calendar.monthrange(year, month)
 
     base_working_days = 0
-    # Count Mondays to Saturdays in the month
+    # Count Mondays to Fridays in the month
     for day in range(1, num_days + 1):
         d = datetime.date(year, month, day)
-        # weekday() returns 0 for Monday, ..., 6 for Sunday
-        if d.weekday() != 6:  # Exclude Sunday (6)
+        # weekday() returns 0 for Monday, ..., 5 for Saturday, 6 for Sunday
+        if d.weekday() not in [5, 6]:  # Exclude Saturday (5) and Sunday (6)
             base_working_days += 1
 
     # Fetch holidays for the current year
@@ -2234,7 +2288,7 @@ async def get_working_days_for_current_month() -> int:
         print(f"[WORKING DAYS ERROR] Failed to fetch holidays: {e}")
         holidays = []
 
-    # Subtract holidays that fall on a working day (Mon-Sat) in the current month
+    # Subtract holidays that fall on a working day (Mon-Fri) in the current month
     month_prefix = f"{year}-{month:02d}-"
     holiday_deductions = 0
     for h in holidays:
@@ -2242,7 +2296,7 @@ async def get_working_days_for_current_month() -> int:
         if h_date_str and h_date_str.startswith(month_prefix):
             try:
                 h_date = datetime.datetime.strptime(h_date_str, "%Y-%m-%d").date()
-                if h_date.weekday() != 6:  # Lands on Monday-Saturday
+                if h_date.weekday() not in [5, 6]:  # Lands on Monday-Friday
                     holiday_deductions += 1
             except Exception as ex:
                 print(f"[WORKING DAYS ERROR] Failed to parse holiday date {h_date_str}: {ex}")

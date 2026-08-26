@@ -1,6 +1,6 @@
 // Global App State
-let currentUser = null;
-let currentRole = null; // 'candidate', 'hr', or 'admin'
+let currentUser = sessionStorage.getItem('currentUser') || null;
+let currentRole = sessionStorage.getItem('currentRole') || null; // 'candidate', 'hr', or 'admin'
 let systemState = null;
 let pollInterval = null;
 let editingSeating = {};
@@ -257,16 +257,170 @@ async function syncStateData() {
     }
 }
 
+// Mapping of tab ids to paths and vice versa
+const tabToPath = {
+    'candidate-profile': '/candidate/profile',
+    'candidate-calendar': '/candidate/calendar',
+    'candidate-chatbot': '/candidate/chatbot',
+    'candidate-attendance': '/candidate/attendance',
+    'candidate-seating': '/candidate/seating',
+    'candidate-documents': '/candidate/documents',
+    'candidate-projects': '/candidate/projects',
+    'candidate-bank': '/candidate/bank',
+    'candidate-settings': '/candidate/settings',
+    
+    'hr-teachers-list': '/hr/teachers',
+    'hr-verification': '/hr/verification',
+    'hr-attendance-manager': '/hr/attendance',
+    'hr-salary': '/hr/salary',
+    'hr-add-teacher': '/hr/add-teacher',
+    
+    'admin-seating-allotment': '/admin/seating',
+    'admin-announcements': '/admin/announcements',
+    'admin-teachers-overview': '/admin/teachers',
+    'admin-calendar': '/admin/calendar'
+};
+
+const pathToTab = {};
+for (const [tab, path] of Object.entries(tabToPath)) {
+    pathToTab[path] = tab;
+}
+
+// Router and navigation functions
+function navigate(path, updateHistory = true) {
+    if (updateHistory) {
+        window.history.pushState({}, '', path);
+    }
+    router(path);
+}
+
+// Make globally available
+window.navigate = navigate;
+
+async function router(path = window.location.pathname) {
+    // Check session
+    currentUser = sessionStorage.getItem('currentUser') || null;
+    currentRole = sessionStorage.getItem('currentRole') || null;
+    
+    if (path === '/') {
+        if (!currentUser) {
+            navigate('/login');
+            return;
+        }
+        if (currentRole === 'candidate') navigate('/candidate/profile');
+        else if (currentRole === 'hr') navigate('/hr/teachers');
+        else if (currentRole === 'admin') navigate('/admin/seating');
+        return;
+    }
+    
+    if (path === '/login') {
+        if (currentUser) {
+            navigate('/');
+            return;
+        }
+        if (loginScreen) loginScreen.classList.remove('hidden');
+        if (portalScreen) portalScreen.classList.add('hidden');
+        return;
+    }
+    
+    const tabId = pathToTab[path];
+    if (!tabId) {
+        navigate('/');
+        return;
+    }
+    
+    if (!currentUser) {
+        navigate(`/login?redirect=${encodeURIComponent(path)}`);
+        return;
+    }
+    
+    const requiredRole = path.startsWith('/candidate') ? 'candidate' :
+                         path.startsWith('/hr') ? 'hr' :
+                         path.startsWith('/admin') ? 'admin' : null;
+                         
+    if (currentRole !== requiredRole) {
+        navigate('/');
+        return;
+    }
+    
+    if (!systemState) {
+        try {
+            const res = await fetch('/api/state?t=' + Date.now());
+            systemState = await res.json();
+        } catch (e) {
+            console.error('Error fetching state in router:', e);
+        }
+    }
+    
+    if (loginScreen) loginScreen.classList.add('hidden');
+    if (portalScreen) portalScreen.classList.remove('hidden');
+    
+    if (candidateMenu) candidateMenu.classList.add('hidden');
+    if (hrMenu) hrMenu.classList.add('hidden');
+    if (adminMenu) adminMenu.classList.add('hidden');
+    
+    if (currentRole === 'candidate') {
+        if (candidateMenu) candidateMenu.classList.remove('hidden');
+        if (roleBadge) {
+            roleBadge.innerText = 'Candidate / Teacher';
+            roleBadge.className = 'badge badge-info';
+        }
+        if (announcementsSidebar) announcementsSidebar.classList.remove('hidden');
+    } else if (currentRole === 'hr') {
+        if (hrMenu) hrMenu.classList.remove('hidden');
+        if (roleBadge) {
+            roleBadge.innerText = 'HR Department';
+            roleBadge.className = 'badge badge-success';
+        }
+        if (announcementsSidebar) announcementsSidebar.classList.add('hidden');
+    } else if (currentRole === 'admin') {
+        if (adminMenu) adminMenu.classList.remove('hidden');
+        if (roleBadge) {
+            roleBadge.innerText = 'Chairperson / Admin';
+            roleBadge.className = 'badge badge-danger';
+        }
+        if (announcementsSidebar) announcementsSidebar.classList.remove('hidden');
+    }
+    
+    if (systemState) {
+        let userData = null;
+        if (currentRole === 'admin') {
+            userData = { name: 'PES Chairperson', email: 'chairperson@pes.edu' };
+        } else if (currentRole === 'hr') {
+            userData = { name: 'HR Desk Officer', email: 'hr.onboarding@pes.edu' };
+        } else if (systemState.teachers && systemState.teachers[currentUser]) {
+            userData = systemState.teachers[currentUser];
+        }
+        
+        if (userData) {
+            if (sidebarName) sidebarName.innerText = userData.name;
+            if (sidebarEmail) sidebarEmail.innerText = userData.email;
+            if (userDisplayName) userDisplayName.innerText = userData.name;
+            
+            const chatbotHeading = document.getElementById('chatbot-heading');
+            if (chatbotHeading) {
+                chatbotHeading.innerText = `Hello ${userData.name}, how can I help you today?`;
+            }
+        }
+    }
+    
+    switchTab(tabId, false);
+    
+    if (!pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = setInterval(syncStateData, 3000);
+    }
+}
+
 // Tab switcher handler
 document.querySelectorAll('.nav-tab').forEach(tab => {
     tab.addEventListener('click', (e) => {
         const btn = e.target.closest('.nav-tab');
         if (!btn) return;
         const targetTab = btn.getAttribute('data-tab');
-        switchTab(targetTab);
-
+        
         if (targetTab === 'candidate-chatbot') {
-            const teacher = (systemState.teachers && systemState.teachers[currentUser]) ? systemState.teachers[currentUser] : null;
+            const teacher = (systemState && systemState.teachers && systemState.teachers[currentUser]) ? systemState.teachers[currentUser] : null;
             if (teacher && teacher.current_stage === 'policy_review') {
                 const hasClickedAlert = localStorage.getItem(`has_clicked_policy_alert_${currentUser}`) === 'true';
                 if (!hasClickedAlert) {
@@ -281,10 +435,20 @@ document.querySelectorAll('.nav-tab').forEach(tab => {
             localStorage.setItem(`has_clicked_docs_alert_${currentUser}`, 'true');
             btn.classList.remove('blinking-alert');
         }
+
+        switchTab(targetTab, true);
     });
 });
 
-function switchTab(tabId) {
+function switchTab(tabId, triggerNavigate = true) {
+    if (triggerNavigate) {
+        const path = tabToPath[tabId];
+        if (path) {
+            navigate(path);
+            return;
+        }
+    }
+    
     // Deactivate current tabs
     document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.add('hidden'));
@@ -301,7 +465,8 @@ function switchTab(tabId) {
     }
     if (tabId === 'candidate-chatbot') {
         setTimeout(() => {
-            fullscreenChatBody.scrollTop = fullscreenChatBody.scrollHeight;
+            const fsChatBody = document.getElementById('fullscreen-chat-body');
+            if (fsChatBody) fsChatBody.scrollTop = fsChatBody.scrollHeight;
         }, 50);
     }
     if (tabId === 'candidate-calendar') {
@@ -4591,3 +4756,9 @@ if (fpResetBtn) {
         }
     });
 }
+
+// Init routing
+window.addEventListener('popstate', () => {
+    router(window.location.pathname);
+});
+router(window.location.pathname);
