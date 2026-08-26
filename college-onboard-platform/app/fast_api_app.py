@@ -91,9 +91,12 @@ static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 os.makedirs(static_dir, exist_ok=True)
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-@app.get("/")
-def read_index():
-    return FileResponse(os.path.join(static_dir, "index.html"))
+@app.get("/{path:path}")
+def read_index(path: str = ""):
+    if path.startswith("api/") or path.startswith("webhook/") or path.startswith("static/") or path in ["feedback", "health"]:
+        raise HTTPException(status_code=404, detail="Not Found")
+    headers = {"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"}
+    return FileResponse(os.path.join(static_dir, "index.html"), headers=headers)
 
 
 # Ambient Background Operator definition
