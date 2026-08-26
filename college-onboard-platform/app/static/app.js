@@ -152,6 +152,8 @@ async function authenticate(username, password) {
         // Setup session
         currentUser = username;
         currentRole = role;
+        sessionStorage.setItem('currentUser', username);
+        sessionStorage.setItem('currentRole', role);
 
         // Visual routing transformations
         loginScreen.classList.add('hidden');
